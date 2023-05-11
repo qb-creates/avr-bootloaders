@@ -8,41 +8,67 @@ using System.IO.Ports;
 using System.Threading;
 using System.Text.RegularExpressions;
 using System.Diagnostics;
+using System.Linq;
+
 
 namespace MCUProgrammingTool
 {
     class Program
     {
-        private static SerialPort serialPort;
-        private static List<string> myList = new List<string>();
+        private const string FilePathIdentifier = "-F";
+        private const string ComPortIdentifier = "-P";
+
+        private static SerialPort serialPort = new SerialPort();
         private static List<byte[]> myByteList = new List<byte[]>();
         private static Queue<byte[]> myByteQueue = new Queue<byte[]>();
-        private static string dataReceived = string.Empty;
+        private static string receivedData = string.Empty;
         private static byte[] page = new byte[2] { 0x00, 0x00 };
+        private static string line = string.Empty;
+        private static double totalBytes = 0;
+        private static int totalFlashBytes = 0;
+        private static double bytesTransmitted = 0;
+        private static int previousPercentage = 0;
+        private static DateTime startTime;
+        private static string progressBar = "                                                  ";
+        private static string filePath = string.Empty;
+        private static string comPort = string.Empty;
 
-        static void Main(string[] args)
+        static void Main(string[] options)
         {
+            if (options.Length == 0)
+            {
+                Console.WriteLine("TODO: Enter help text");
+                return;
+            }
 
-            String line = string.Empty;
+            FilterOptions(options, out string error);
+
+            if (!string.IsNullOrEmpty(error))
+            {
+                Console.WriteLine(error);
+                return;
+            }
+
+            ConfigureComPort();
+
             try
             {
                 //Pass the file path and file name to the StreamReader constructor
-                StreamReader sr = new StreamReader(@"C:\Users\qbake\Desktop\firmware.hex");
+                StreamReader sr = new StreamReader(filePath);
 
-                //Continue to read until you reach end of file
                 while (line != null)
                 {
-                    //write the line to console window
-                    //Read the next line
                     line = sr.ReadLine();
                     line = line?.Substring(9, (line.Length - 9 - 2));
 
                     if (!string.IsNullOrEmpty(line))
                     {
+                        Console.WriteLine(line);
                         byte[] result = Regex.Matches(line, @"[A-Z0-9]{2}").Cast<Match>().Select(item =>
                         {
                             return Convert.ToByte(item.Value, 16);
                         }).ToArray();
+
                         myByteList.Add(result);
                     }
                 }
@@ -54,13 +80,17 @@ namespace MCUProgrammingTool
                     a = a.Concat(data).ToArray();
                 }
 
+                totalFlashBytes = a.Length;
+
                 List<byte> test = new List<byte>();
+
                 for (int i = 0; i < a.Length; i++)
                 {
                     if (i != 0 && i % 256 == 0)
                     {
                         byte[] adding = page.Concat(test.ToArray()).ToArray();
                         myByteQueue.Enqueue(adding);
+                        totalBytes += adding.Length;
                         test.Clear();
 
                         if (page[1] != 255)
@@ -79,6 +109,7 @@ namespace MCUProgrammingTool
                     {
                         byte[] adding = page.Concat(test.ToArray()).ToArray();
                         myByteQueue.Enqueue(adding);
+                        totalBytes += adding.Length;
                     }
                 }
                 //close the file
@@ -88,54 +119,102 @@ namespace MCUProgrammingTool
             {
                 Console.WriteLine("Exception: " + e.Message);
             }
-   
+
             Console.WriteLine("Start update?");
             Console.ReadLine();
 
-            serialPort = new SerialPort();
-            serialPort.DataReceived += SerialPort_DataReceived;
-            serialPort.PortName = "COM3";
-            serialPort.BaudRate = 9600;
-            serialPort.Parity = Parity.None;
-            serialPort.DataBits = 8;
-            serialPort.StopBits = StopBits.Two;
+         
             serialPort.Open();
             serialPort.Write("update\r");
             Console.ReadLine();
         }
 
+        private static void FilterOptions(string[] options, out string error)
+        {
+            int comPortIdentifierIndex = Array.FindIndex(options, option => option == ComPortIdentifier) + 1;
+
+            if (comPortIdentifierIndex == options.Length || Regex.IsMatch(options[comPortIdentifierIndex], @"^-[FP]$"))
+            {
+                error = "No ComPort has been specified on the command line.\n Specify a ComPort using the -P option and try again.\n";
+                return;
+            }
+
+            comPort = options[comPortIdentifierIndex];
+
+            int filePathIdentifierIndex = Array.FindIndex(options, option => option == FilePathIdentifier) + 1;
+
+            if (filePathIdentifierIndex == options.Length || Regex.IsMatch(options[filePathIdentifierIndex], @"^-[FP]$"))
+            {
+                error = "A file path to a hex file has not been specified on the command line.\n Specify a file path using the -F option and try again.\n";
+                return;
+            }
+            Console.WriteLine(options[filePathIdentifierIndex]);
+            filePath = options[filePathIdentifierIndex];
+            error = string.Empty;
+        }
+
+        private static void ConfigureComPort()
+        {
+            serialPort.DataReceived += SerialPort_DataReceived;
+            serialPort.PortName = comPort;
+            serialPort.BaudRate = 115200;
+            serialPort.Parity = Parity.None;
+            serialPort.DataBits = 8;
+            serialPort.StopBits = StopBits.One;
+        }
+
         private static void SerialPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
-            dataReceived += (sender as SerialPort).ReadExisting();
+            receivedData += (sender as SerialPort).ReadExisting();
 
-            if (dataReceived.Contains("Entering Firmware Update Mode"))
+            if (receivedData.Contains("Entering Firmware Update Mode"))
             {
-                Debug.WriteLine(dataReceived);
-                dataReceived = dataReceived.Replace("Entering Firmware Update Mode", "").Replace("\r", "").Replace("\n", "");
-                Thread t = new Thread(new ThreadStart(FlashCode));
+                Console.WriteLine($@"Reading input file 'C:\Users\qbake\Desktop\firmware.hex'");
+                Console.WriteLine($"Writing flash ({totalFlashBytes} bytes):\n");
+                receivedData = string.Empty;
+                startTime = DateTime.Now;
+                Console.CursorVisible = false;
+                Thread t = new Thread(new ThreadStart(TransmitDataToMCU));
                 t.Start();
             }
-            else if (dataReceived.Contains("Page Written"))
+            else if (receivedData.Contains("Page Written"))
             {
-                Debug.WriteLine(dataReceived);
-                dataReceived = dataReceived.Replace("Page Written", "").Replace("\r","").Replace("\n","");
-                Thread t = new Thread(new ThreadStart(FlashCode));
+                receivedData = string.Empty;
+                Thread t = new Thread(new ThreadStart(TransmitDataToMCU));
                 t.Start();
             }
-            else if (dataReceived.Contains("Update Complete"))
+            else if (receivedData.Contains("Update Complete"))
             {
-                Debug.WriteLine(dataReceived);
-                dataReceived = dataReceived.Replace("Update Complete", "");
+                Console.WriteLine($@"\n{receivedData}");
+                receivedData = receivedData.Replace("Update Complete", "");
             }
         }
 
-        private static void FlashCode()
+        private static void TransmitDataToMCU()
         {
             if (myByteQueue.Count > 0)
             {
                 byte[] data = myByteQueue.Dequeue();
-                Debug.WriteLine("Flashing page {0}", data[1]);
-                serialPort.Write(data, 0, data.Length);
+                //Console.WriteLine("Flashing page {0}", data[1]);
+                for (int i = 0; i < data.Length; i++)
+                {
+                    serialPort.Write(data, i, 1);
+                    bytesTransmitted++;
+
+                    int currentPercentage = (int)((bytesTransmitted / totalBytes) * 100);
+
+                    if (currentPercentage % 2 == 0 && currentPercentage != previousPercentage)
+                    {
+                        int nextEmptySpace = progressBar.IndexOf(" ");
+
+                        progressBar = progressBar.Remove(nextEmptySpace, 1).Insert(nextEmptySpace, "#");
+                        previousPercentage = currentPercentage;
+                    }
+
+                    int elaspedTime = (DateTime.Now - startTime).Seconds;
+                    Console.Write($@"Writing | {progressBar} | {currentPercentage}%  {elaspedTime}s");
+                    Console.SetCursorPosition(0, Console.CursorTop);
+                }
             }
         }
     }
