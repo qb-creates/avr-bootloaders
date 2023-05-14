@@ -5,14 +5,12 @@ namespace qbdude;
 public sealed class FirmwareUploadUtility
 {
     private SerialPort serialPort = new SerialPort();
-    private static DateTime startTime;
-    private static string progressBar = "                                                  ";
-    private int previousPercentage = 0;
     private string receivedData = string.Empty;
     private double totalBytes = 0;
     private int totalFlashBytes = 0;
     private double bytesTransmitted = 0;
-    private Queue<byte[]> myByteQueue = new Queue<byte[]>();
+    private Queue<byte[]> pageDataQueue = new Queue<byte[]>();
+    private CancellationTokenSource source = new CancellationTokenSource();
 
     private static FirmwareUploadUtility? instance;
 
@@ -51,15 +49,41 @@ public sealed class FirmwareUploadUtility
         catch (ArgumentException)
         {
             Console.WriteLine("qbdude: The given port name does not start with COM/com or does not resolve to a valid serial port.");
+            Console.WriteLine($"qbdude done. Thank You.\n");
             Environment.Exit(0);
         }
     }
 
-    public void StartUpdate()
+    public void StartUpdate(byte[] hexFileData)
     {
+        totalFlashBytes = hexFileData.Length;
+
+        List<byte> tempByteList = new List<byte>();
+
+        int pageCount = 0;
+
+        for (int i = 0; i < hexFileData.Length; i++)
+        {
+            if (i % 256 == 0)
+            {
+                tempByteList.Add((byte)((pageCount >> 8) & 0xFF));
+                tempByteList.Add((byte)(pageCount & 0xFF));
+                pageCount++;
+            }
+
+            tempByteList.Add(hexFileData[i]);
+
+            if ((i - 255) % 256 == 0 || i == hexFileData.Length - 1)
+            {
+                pageDataQueue.Enqueue(tempByteList.ToArray());
+                totalBytes += tempByteList.ToArray().Length;
+                tempByteList.Clear();
+            }
+        }
+
         serialPort.Write("RTU\r");
     }
-    
+
     private void SerialPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
     {
         SerialPort serialPort = (SerialPort)sender;
@@ -69,49 +93,40 @@ public sealed class FirmwareUploadUtility
         {
             Console.WriteLine($"qbdude: Writing flash ({totalFlashBytes} bytes):\n");
             receivedData = string.Empty;
-            startTime = DateTime.Now;
-            Console.CursorVisible = false;
+
+            ProgressBar.Instance.StartProgress(source.Token, "Writing");
+
             Thread t = new Thread(new ThreadStart(TransmitDataToMCU));
             t.Start();
         }
-        else if (receivedData.Contains("Page Written"))
+        else if (receivedData.Contains('\r'))
+        {
+            bytesTransmitted += receivedData.Length; ;
+            receivedData = string.Empty;
+
+            int percentage = (int)((bytesTransmitted / totalBytes) * 100);
+            ProgressBar.Instance.UpdateProgress(percentage);
+        }
+        else if (receivedData.Contains("Page"))
         {
             receivedData = string.Empty;
             Thread t = new Thread(new ThreadStart(TransmitDataToMCU));
             t.Start();
         }
-        else if (receivedData.Contains("Update Complete"))
+        else if (receivedData.Contains("Complete"))
         {
-            Console.WriteLine($@"\nqbdude done. Thank you.");
+            source.Cancel();
+            Console.WriteLine($"\nqbdude done. Thank you.");
             receivedData = string.Empty;
         }
     }
 
     private void TransmitDataToMCU()
     {
-        if (myByteQueue.Count > 0)
+        if (pageDataQueue.Count > 0)
         {
-            byte[] data = myByteQueue.Dequeue();
-
-            for (int i = 0; i < data.Length; i++)
-            {
-                serialPort.Write(data, i, 1);
-                bytesTransmitted++;
-
-                int currentPercentage = (int)((bytesTransmitted / totalBytes) * 100);
-
-                if (currentPercentage % 2 == 0 && currentPercentage != previousPercentage)
-                {
-                    int nextEmptySpace = progressBar.IndexOf(" ");
-
-                    progressBar = progressBar.Remove(nextEmptySpace, 1).Insert(nextEmptySpace, "#");
-                    previousPercentage = currentPercentage;
-                }
-
-                int elaspedTime = (DateTime.Now - startTime).Seconds;
-                Console.Write($@"Writing | {progressBar} | {currentPercentage}%  {elaspedTime}s");
-                Console.SetCursorPosition(0, Console.CursorTop);
-            }
+            byte[] data = pageDataQueue.Dequeue();
+            serialPort.Write(data, 0, data.Length);
         }
     }
 }

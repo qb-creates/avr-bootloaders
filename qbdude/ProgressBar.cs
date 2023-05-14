@@ -1,0 +1,77 @@
+namespace qbdude;
+
+public sealed class ProgressBar
+{
+    private string progressBar = "                                                  ";
+    private int previousPercentage = 0;
+    private int elaspedTime = 0;
+    private string operationText = string.Empty;
+    private bool isActive;
+    private static ProgressBar? instance;
+
+    public static ProgressBar Instance
+    {
+        get
+        {
+            if (instance == null)
+            {
+                instance = new ProgressBar();
+            }
+
+            return instance;
+        }
+    }
+    private ProgressBar() { }
+
+    public void StartProgress(CancellationToken cToken, string operationText)
+    {
+        if (!isActive)
+        {
+            this.operationText = operationText;
+            isActive = true;
+
+            Thread t = new Thread(() => ProgressBarTimer(cToken));
+            t.Start();
+        }
+    }
+
+    public void UpdateProgress(int percentage)
+    {
+        if (isActive)
+        {
+            if (percentage % 2 == 0 && percentage != previousPercentage && percentage <= 100)
+            {
+                for (int i = previousPercentage / 2; i < percentage / 2; i++)
+                {
+                    progressBar = progressBar.Remove(i, 1).Insert(i, "#");
+                }
+
+                Console.SetCursorPosition(0, Console.CursorTop);
+                Console.Write($@"{operationText} | {progressBar} | {percentage}%");
+                previousPercentage = percentage;
+            }
+        }
+    }
+
+    private void ProgressBarTimer(CancellationToken token)
+    {
+        while (true)
+        {
+            if (token.IsCancellationRequested)
+            {
+                progressBar = "                                                  ";
+                previousPercentage = 0;
+                elaspedTime = 0;
+                isActive = false;
+                Console.WriteLine("\n");
+                return;
+            }
+
+            Console.CursorVisible = false;
+            Console.SetCursorPosition(69, Console.CursorTop);
+            Console.Write($@"{elaspedTime}s");
+            Thread.Sleep(1000);
+            elaspedTime++;
+        }
+    }
+}

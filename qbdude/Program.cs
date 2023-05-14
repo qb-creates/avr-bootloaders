@@ -26,7 +26,7 @@ class Program
 
     static void Main(string[] options)
     {
-        options = new string[] { "-P", "COM3", "-F", "C:\\Users\\qbake\\Desktop\\firmwar" };
+        options = new string[] { "-P", "COM3", "-F", "C:\\Users\\qbake\\Desktop\\firmware.hex" };
         if (options.Length == 0)
         {
             Console.WriteLine("TODO: Enter help text");
@@ -36,8 +36,7 @@ class Program
         FilterOptions(options);
         HexReaderUtility.Instance.ReadHexFile(filePath);
         FirmwareUploadUtility.Instance.OpenComPort(comPort);
-
-        Console.WriteLine("Start update?");
+        FirmwareUploadUtility.Instance.StartUpdate(HexReaderUtility.Instance.HexFileData);
         Console.ReadLine();
 
         serialPort.Write("update\r");
@@ -55,7 +54,7 @@ class Program
             Environment.Exit(0);
         }
 
-        comPort = options[comPortIdentifierIndex];
+        comPort = options[comPortIndex];
 
         int filePathIdentifierIndex = Array.FindIndex(options, option => option == FilePathIdentifier);
         int filePathIndex = filePathIdentifierIndex + 1;

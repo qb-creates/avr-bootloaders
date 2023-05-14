@@ -4,10 +4,13 @@ namespace qbdude;
 
 public sealed class HexReaderUtility
 {
-    private Queue<byte[]> pageDataQueue = new Queue<byte[]>();
+    private CancellationTokenSource source = new CancellationTokenSource();
+    private double bytesTransmitted = 0;
     private double totalBytes = 0;
 
     private static HexReaderUtility? instance;
+
+    public byte[] HexFileData { get; set; } = new Byte[0];
 
     public static HexReaderUtility Instance
     {
@@ -21,23 +24,47 @@ public sealed class HexReaderUtility
         }
     }
 
-    public int TotalFlash { get; set; }
-
     private HexReaderUtility() { }
 
+
+    public void Timer(CancellationToken cToken)
+    {
+        int counter = 0;
+
+        while (true)
+        {
+            if (cToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            Console.CursorVisible = false;
+            Console.SetCursorPosition(100, Console.CursorTop);
+            Console.Write($@"{counter}s");
+            counter++;
+            Thread.Sleep(1000);
+        }
+    }
     public void ReadHexFile(string filePath)
     {
         try
         {
-            Console.WriteLine($"qbdude: Reading input file '{filePath}'");
+            Console.WriteLine($"qbdude: Reading input file '{filePath}'\n");
+            totalBytes = new FileInfo(filePath).Length;
 
             using (StreamReader sr = new StreamReader(filePath))
             {
                 string? line = string.Empty;
-                byte[] hexFileData = new byte[0];
+                HexFileData = new byte[0];
+
+                ProgressBar.Instance.StartProgress(source.Token, "Reading");
 
                 while ((line = sr.ReadLine()) != null)
                 {
+                    if (line != null)
+                    {
+                        bytesTransmitted += line.Length;
+                    }
                     line = line?.Substring(9, (line.Length - 9 - 2));
 
                     if (!string.IsNullOrEmpty(line))
@@ -47,45 +74,22 @@ public sealed class HexReaderUtility
                             return Convert.ToByte(item.Value, 16);
                         }).ToArray();
 
-                        hexFileData = hexFileData.Concat(result).ToArray();
-                    }
-                }
+                        HexFileData = HexFileData.Concat(result).ToArray();
 
-                TotalFlash = hexFileData.Length;
-                BuildPageQueue(hexFileData);
+                        bytesTransmitted += line.Length;
+
+                        int percentage = (int)((bytesTransmitted / totalBytes) * 100);
+                        ProgressBar.Instance.UpdateProgress(percentage);
+                    }
+                    source.Cancel();
+                }
             }
         }
         catch (FileNotFoundException)
         {
-            Console.WriteLine($"qbdude: can't open input file {filePath}: No such file or directory.");
+            Console.WriteLine($"qbdude: can't open input file {filePath}: No such file or directory.\n");
+            Console.WriteLine($"qbdude done. Thank You.\n");
             Environment.Exit(0);
-        }
-
-    }
-
-    public void BuildPageQueue(byte[] hexFileData)
-    {
-        List<byte> tempByteList = new List<byte>();
-
-        int pageCount = 0;
-
-        for (int i = 0; i < hexFileData.Length; i++)
-        {
-            if (i % 256 == 0)
-            {
-                tempByteList.Add((byte)((pageCount >> 8) & 0xFF));
-                tempByteList.Add((byte)(pageCount & 0xFF));
-                pageCount++;
-            }
-
-            tempByteList.Add(hexFileData[i]);
-
-            if ((i - 255) % 256 == 0 || i == hexFileData.Length - 1)
-            {
-                pageDataQueue.Enqueue(tempByteList.ToArray());
-                totalBytes += tempByteList.ToArray().Length;
-                tempByteList.Clear();
-            }
         }
     }
 }
