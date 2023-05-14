@@ -4,7 +4,6 @@ namespace qbdude;
 
 public sealed class HexReaderUtility
 {
-    private CancellationTokenSource source = new CancellationTokenSource();
     private double bytesTransmitted = 0;
     private double totalBytes = 0;
 
@@ -26,26 +25,7 @@ public sealed class HexReaderUtility
 
     private HexReaderUtility() { }
 
-
-    public void Timer(CancellationToken cToken)
-    {
-        int counter = 0;
-
-        while (true)
-        {
-            if (cToken.IsCancellationRequested)
-            {
-                return;
-            }
-
-            Console.CursorVisible = false;
-            Console.SetCursorPosition(100, Console.CursorTop);
-            Console.Write($@"{counter}s");
-            counter++;
-            Thread.Sleep(1000);
-        }
-    }
-    public void ReadHexFile(string filePath)
+    public async Task ReadHexFile(string filePath)
     {
         try
         {
@@ -57,7 +37,7 @@ public sealed class HexReaderUtility
                 string? line = string.Empty;
                 HexFileData = new byte[0];
 
-                ProgressBar.Instance.StartProgress(source.Token, "Reading");
+                ProgressBar.Instance.StartProgress("Reading");
 
                 while ((line = sr.ReadLine()) != null)
                 {
@@ -81,8 +61,8 @@ public sealed class HexReaderUtility
                         int percentage = (int)((bytesTransmitted / totalBytes) * 100);
                         ProgressBar.Instance.UpdateProgress(percentage);
                     }
-                    source.Cancel();
                 }
+                await ProgressBar.Instance.StopProgressBar();
             }
         }
         catch (FileNotFoundException)

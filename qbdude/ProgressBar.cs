@@ -2,6 +2,7 @@ namespace qbdude;
 
 public sealed class ProgressBar
 {
+    private CancellationTokenSource source = new CancellationTokenSource();
     private string progressBar = "                                                  ";
     private int previousPercentage = 0;
     private int elaspedTime = 0;
@@ -23,14 +24,15 @@ public sealed class ProgressBar
     }
     private ProgressBar() { }
 
-    public void StartProgress(CancellationToken cToken, string operationText)
+    public void StartProgress(string operationText)
     {
         if (!isActive)
         {
+            source = new CancellationTokenSource();
             this.operationText = operationText;
             isActive = true;
 
-            Thread t = new Thread(() => ProgressBarTimer(cToken));
+            Thread t = new Thread(() => ProgressBarTimer(source.Token));
             t.Start();
         }
     }
@@ -53,6 +55,16 @@ public sealed class ProgressBar
         }
     }
 
+    public async Task StopProgressBar() 
+    {
+        source.Cancel();
+        
+        while(isActive)
+        {
+            await Task.Delay(1);
+        }
+    }
+    
     private void ProgressBarTimer(CancellationToken token)
     {
         while (true)
