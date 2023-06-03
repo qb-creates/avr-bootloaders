@@ -3,146 +3,128 @@
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <avr/wdt.h>
-#include <avr/boot.h>
 #include <util/delay.h>
 #include <stdbool.h>
 #include "USART.h"
 #include "Timer.h"
 
-void configureTimer(void);
 void writePageToFlash(volatile uint8_t *buf);
+int isCommandValid(volatile uint8_t data[]);
 
-const char *update = "RTU\r";
+const char *updateCommand = "RTU\r";
 
-volatile uint8_t pageData[258];
+volatile uint8_t usartData[259];
 volatile uint16_t dataCounter = 0;
 
-volatile bool writingToFlash = false;
-volatile bool writePage = false;
-volatile bool updateComplete = false;
-volatile bool resetMCU = false;
-volatile int timer = 0;
-volatile int resetTiemr = 0;
-volatile bool applicationExist = false;
+volatile bool waitingForCommand = true;
+volatile bool commandReceived = false;
 volatile bool verifyFlash = false;
-ISR(TIMER0_COMP_vect)
-{
-  resetTiemr++;
 
-  if (writingToFlash)
-  {
-    timer++;
-    writePage = timer == 20;
-    writingToFlash = !(timer == 100);
-    updateComplete = timer == 100;
-  }
-
-  if (!writingToFlash && applicationExist)
-  {
-    resetMCU = resetTiemr == 2000;
-  }
-}
-
-ISR(TIMER1_COMPA_vect)
-{
-  PORTC ^= 0x01;
-}
+volatile bool writingToFlash = false;
 
 ISR(USART1_RX_vect)
 {
-  char data = USART1::receiveData();
+  usartData[dataCounter] = USART1::receiveData();
 
-  if (!writingToFlash)
+  if (waitingForCommand)
   {
-    pageData[dataCounter] = data;
-    dataCounter++;
-
-    if (data == '\r')
+    if (usartData[dataCounter] == '\r')
     {
+      commandReceived = true;
       dataCounter = 0;
-      for (int i = 0; i < 4; i++)
-      {
-        if (pageData[i] != update[i])
-        {
-          printf("NACK");
-          return;
-        }
-      }
-      writingToFlash = true;
-      TCNT0 = 0;
-      printf("CTU");
+      waitingForCommand = false;
+      return;
     }
   }
-  else
+
+  if (writingToFlash)
   {
-    TCNT1 = 0;
-    timer = 0;
-    pageData[dataCounter] = data;
-    dataCounter++;
-    printf("\r");
+    USART1::transmitData("\r");
   }
+
+  dataCounter++;
 }
 
 int main(void)
 {
-  // uint8_t sr[3];
-  // sr[0] = boot_signature_byte_get(0x0000);
-  // sr[1] = boot_signature_byte_get(0x0002);
-  // sr[2] = boot_signature_byte_get(0x0004);
+  bool applicationExist = pgm_read_word(0) != 0xFFFF;
+  int watchdogResetFlag = MCUCSR & _BV(WDRF);
+  int powerOnResetFlag = MCUCSR & _BV(PORF);
 
-  bool watchdogResetFlag = MCUCSR & _BV(WDRF);
-  applicationExist = pgm_read_word(0) != 0xFFFF;
-
-  if (watchdogResetFlag && applicationExist)
+  if ((watchdogResetFlag || powerOnResetFlag) && applicationExist)
   {
-    MCUCSR &= ~_BV(WDRF);
+    MCUCSR &= ~(watchdogResetFlag | powerOnResetFlag);
     cli();
     asm("jmp 0x000");
   }
 
-  DDRC = 0xFF;
-  PORTC = 0xFE;
-  // DDRB = 0x00;
-  // PORTB = 0xFF;
   MCUCR = _BV(IVCE);
   MCUCR = _BV(IVSEL);
 
   USART1::configure(3, Databits::Eight, Parity::None, StopBits::One, ClkPolarity::FallingRising, Mode::Async);
   TIMER0::configure();
-  TIMER1A::configure();
+  TIMER::startBootloaderIndicator();
   sei();
 
   while (1)
   {
-    // if (!(PINB & 0x02))
-    // {
-    //   // Use this to see all bytes of data for a particular section
-    //   for (uint64_t i = 0; i < (SPM_PAGESIZE * 300); i++)
-    //   {
-    //     printf("%02x  ", pgm_read_byte(i));
-    //   }
-    //   wdt_enable(WDTO_15MS);
-    // }
-
-    if (resetMCU)
+    if (commandReceived)
     {
-      resetMCU = false;
-      wdt_enable(WDTO_15MS);
+      switch (isCommandValid(usartData))
+      {
+      case 0:
+        USART1::transmitData("NACK");
+        waitingForCommand = true;
+        break;
+      case 1:
+        writingToFlash = true;
+        USART1::transmitData("CTU");
+        break;
+      }
+
+      commandReceived = false;
     }
 
-    if (writePage && writingToFlash)
+    if (dataCounter == 259 && writingToFlash)
     {
-      writePageToFlash(pageData);
-      printf("Page");
+      char finalByte = usartData[dataCounter - 1];
+      writePageToFlash(usartData);
+      _delay_ms(50);
+
+      if (finalByte != '\xFE')
+      {
+        dataCounter = 0;
+        USART1::transmitData("Page");
+      }
+      else
+      {
+        TIMER::stopBootloaderTimer();
+        TIMER::stopBootloaderIndicator();
+        USART1::transmitData("Complete");
+        wdt_enable(WDTO_15MS);
+      }
     }
 
-    if (updateComplete)
+    if (!writingToFlash && TIMER::resetTimer >= 20 && applicationExist)
     {
-      printf("Complete");
-      updateComplete = false;
+      TIMER::stopBootloaderTimer();
+      TIMER::stopBootloaderIndicator();
       wdt_enable(WDTO_15MS);
     }
   }
+}
+
+int isCommandValid(volatile uint8_t command[])
+{
+  for (int i = 0; i < 4; i++)
+  {
+    if (command[i] != updateCommand[i])
+    {
+      return 0;
+    }
+  }
+
+  return 1;
 }
 
 void writePageToFlash(volatile uint8_t *buf)
@@ -161,7 +143,7 @@ void writePageToFlash(volatile uint8_t *buf)
   // Wait until the memory is erased.
   boot_spm_busy_wait();
 
-  for (uint16_t i = 0; i < (dataCounter - 2); i += 2)
+  for (uint16_t i = 0; i < (dataCounter - 3); i += 2)
   {
     // Build opcode while setting up little-endian word.
     uint16_t opcode = *buf++;
@@ -180,7 +162,4 @@ void writePageToFlash(volatile uint8_t *buf)
   // Enable Read While Write Section
   boot_rww_enable();
   sei();
-
-  writePage = false;
-  dataCounter = 0;
 }

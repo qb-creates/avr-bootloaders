@@ -2,6 +2,7 @@
 #define USART_H
 #include <stdio.h>
 #include <avr/io.h>
+#include <string.h>
 
 // Represents our three UCSZ bits in the USCRnx Registers
 enum Databits
@@ -52,28 +53,19 @@ enum ClkPolarity
 };
 
 /**
- * @brief Static USART0 class. Can be used for serial data transmission.
- * 
- */
-class USART0
-{
-public:
-  static void configure(int ubrr, Databits dataBits, Parity parity, StopBits stopBits, ClkPolarity clock, Mode mode);
-  static unsigned char receiveData(void);
-  static void transmitData(unsigned char data);
-  static int usartPutChar(char c, FILE *stream);
-};
-
-/**
  * @brief Static USART1 class. Can be used for serial data transmission.
- * 
+ *
  */
 class USART1
 {
+private:
+  int counter;
+
 public:
   static void configure(int ubrr, Databits dataBits, Parity parity, StopBits stopBits, ClkPolarity clock, Mode mode);
   static unsigned char receiveData(void);
-  static void transmitData(unsigned char data);
+  static void transmitData(const char *data);
+  static void transmitData(char data[], int size);
   static int usartPutChar(char c, FILE *stream);
 };
 #endif
