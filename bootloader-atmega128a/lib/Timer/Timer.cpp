@@ -11,7 +11,7 @@ ISR(TIMER3_COMPA_vect)
  * Output OC3A/B/C have no operation. A 1024 prescale factor is selected.
  * Enables compare match interrupt.
  * */
-void TIMER0::configure()
+void TIMER::startResetTimer()
 {
   TCCR3B = _BV(WGM32) | _BV(CS32) | 1 << CS30;
   OCR3A = (F_CPU / 2048) * 2;
@@ -26,7 +26,7 @@ void TIMER0::configure()
  * connected to an LED to let the user know when the device is in
  * bootloader mode.
  */
-void TIMER::stopBootloaderTimer()
+void TIMER::stopResetTimer()
 {
   TCCR3B = 0;
   TIMER::resetTimer = 0;

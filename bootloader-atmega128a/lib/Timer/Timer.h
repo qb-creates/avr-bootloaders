@@ -7,14 +7,10 @@ class TIMER
 {
 public:
 	static volatile int resetTimer;
-	static void stopBootloaderTimer();
+	static void startResetTimer();
+	static void stopResetTimer();
 	static void startBootloaderIndicator();
 	static void stopBootloaderIndicator();
 };
 
-class TIMER0
-{
-public:
-	static void configure();
-};
 #endif

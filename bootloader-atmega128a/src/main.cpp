@@ -8,7 +8,7 @@
 #include "USART.h"
 #include "Timer.h"
 
-void writePageToFlash(volatile uint8_t *buf);
+char writePageToFlash(volatile uint8_t *buf);
 int isCommandValid(volatile uint8_t data[]);
 
 const char *updateCommand = "RTU\r";
@@ -19,7 +19,6 @@ volatile uint16_t dataCounter = 0;
 volatile bool waitingForCommand = true;
 volatile bool commandReceived = false;
 volatile bool verifyFlash = false;
-
 volatile bool writingToFlash = false;
 
 ISR(USART1_RX_vect)
@@ -62,7 +61,7 @@ int main(void)
   MCUCR = _BV(IVSEL);
 
   USART1::configure(3, Databits::Eight, Parity::None, StopBits::One, ClkPolarity::FallingRising, Mode::Async);
-  TIMER0::configure();
+  TIMER::startResetTimer();
   TIMER::startBootloaderIndicator();
   sei();
 
@@ -87,8 +86,7 @@ int main(void)
 
     if (dataCounter == 259 && writingToFlash)
     {
-      char finalByte = usartData[dataCounter - 1];
-      writePageToFlash(usartData);
+      char finalByte = writePageToFlash(usartData);
       _delay_ms(50);
 
       if (finalByte != '\xFE')
@@ -98,7 +96,7 @@ int main(void)
       }
       else
       {
-        TIMER::stopBootloaderTimer();
+        TIMER::stopResetTimer();
         TIMER::stopBootloaderIndicator();
         USART1::transmitData("Complete");
         wdt_enable(WDTO_15MS);
@@ -107,7 +105,7 @@ int main(void)
 
     if (!writingToFlash && TIMER::resetTimer >= 20 && applicationExist)
     {
-      TIMER::stopBootloaderTimer();
+      TIMER::stopResetTimer();
       TIMER::stopBootloaderIndicator();
       wdt_enable(WDTO_15MS);
     }
@@ -127,10 +125,14 @@ int isCommandValid(volatile uint8_t command[])
   return 1;
 }
 
-void writePageToFlash(volatile uint8_t *buf)
+char writePageToFlash(volatile uint8_t *buf)
 {
-  uint16_t page = (*buf++) << 8;
-  page = (page + *buf++) * 256;
+  // Extract the page from the first two entries of the data array. Separates them into high and low bit.
+  uint16_t pageNumberH = (*buf++) << 8;
+  uint16_t pageNumberL = *buf++;
+
+  // Get the page address by multiplying the page size times the page number.
+  uint16_t pageAddress = (pageNumberH + pageNumberL) * SPM_PAGESIZE;
 
   cli();
 
@@ -138,23 +140,23 @@ void writePageToFlash(volatile uint8_t *buf)
   eeprom_busy_wait();
 
   // Erase memory page.
-  boot_page_erase(page);
+  boot_page_erase(pageAddress);
 
   // Wait until the memory is erased.
   boot_spm_busy_wait();
 
-  for (uint16_t i = 0; i < (dataCounter - 3); i += 2)
+  for (uint16_t i = 0; i < SPM_PAGESIZE; i += 2)
   {
     // Build opcode while setting up little-endian word.
     uint16_t opcode = *buf++;
     opcode += (*buf++) << 8;
 
     // Load page temp buffers
-    boot_page_fill(page + i, opcode);
+    boot_page_fill(pageAddress + i, opcode);
   }
 
   // Store buffer in flash page.
-  boot_page_write(page);
+  boot_page_write(pageAddress);
 
   // Wait until the memory is written.
   boot_spm_busy_wait();
@@ -162,4 +164,7 @@ void writePageToFlash(volatile uint8_t *buf)
   // Enable Read While Write Section
   boot_rww_enable();
   sei();
+
+  // Return the final bayte of the dataArray;
+  return *buf;
 }
