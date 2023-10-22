@@ -4,6 +4,8 @@ namespace qbdude;
 
 public sealed class FirmwareUploadUtility
 {
+    private readonly byte[] endingSequence = new byte[10] { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+    private readonly byte[] endingSequence2 = new byte[10] { 0xFE, 0xFE, 0xFE, 0xFE, 0xFE, 0xFE, 0xFE, 0xFE, 0xFE, 0xFE };
     private SerialPort serialPort = new SerialPort();
     private string receivedData = string.Empty;
     private double totalBytes = 0;
@@ -55,7 +57,7 @@ public sealed class FirmwareUploadUtility
         }
     }
 
-    public async Task Update(byte[] hexFileData) 
+    public async Task Update(byte[] hexFileData)
     {
         List<byte> tempByteList = new List<byte>();
         int pageCount = 0;
@@ -74,6 +76,31 @@ public sealed class FirmwareUploadUtility
 
             if ((i - 255) % 256 == 0 || i == hexFileData.Length - 1)
             {
+
+                // tempByteList.AddRange((i == hexFileData.Length - 1) ? endingSequence2 : endingSequence);
+
+                // tempByteList.Insert(0, Convert.ToByte((tempByteList.Count) & 0xFF));
+                // tempByteList.Insert(0, Convert.ToByte((tempByteList.Count) >> 8));
+                if (tempByteList.Count != 258)
+                {
+                    byte[] temp = new byte[258 - tempByteList.Count];
+                    Array.Fill<byte>(temp, 0xFF);
+                    tempByteList.AddRange(temp);
+                    tempByteList.Add(0xFE);
+                }
+                else
+                {
+                    tempByteList.Add(0xFF);
+                }
+                // if (i == hexFileData.Length - 1)
+                // {
+                //     tempByteList.AddRange(endingSequence2);
+                // }
+                // else
+                // {
+                //     tempByteList.AddRange(endingSequence);
+                // }
+
                 pageDataQueue.Enqueue(tempByteList.ToArray());
                 totalBytes += tempByteList.ToArray().Length;
                 tempByteList.Clear();
@@ -83,39 +110,41 @@ public sealed class FirmwareUploadUtility
         serialPort.Write("RTU\r");
         Console.WriteLine($"qbdude: Writing flash ({hexFileData.Length} bytes):\n");
         updating = true;
-        while(updating)
+
+        while (updating)
         {
             await Task.Delay(10);
         }
     }
-    public void StartUpdate(byte[] hexFileData)
-    {
-        List<byte> tempByteList = new List<byte>();
-        int pageCount = 0;
-        double totalFlashBytes = hexFileData.Length;
 
-        for (int i = 0; i < hexFileData.Length; i++)
-        {
-            if (i % 256 == 0)
-            {
-                tempByteList.Add((byte)((pageCount >> 8) & 0xFF));
-                tempByteList.Add((byte)(pageCount & 0xFF));
-                pageCount++;
-            }
+    // public void StartUpdate(byte[] hexFileData)
+    // {
+    //     List<byte> tempByteList = new List<byte>();
+    //     int pageCount = 0;
+    //     double totalFlashBytes = hexFileData.Length;
 
-            tempByteList.Add(hexFileData[i]);
+    //     for (int i = 0; i < hexFileData.Length; i++)
+    //     {
+    //         if (i % 256 == 0)
+    //         {
+    //             tempByteList.Add((byte)((pageCount >> 8) & 0xFF));
+    //             tempByteList.Add((byte)(pageCount & 0xFF));
+    //             pageCount++;
+    //         }
 
-            if ((i - 255) % 256 == 0 || i == hexFileData.Length - 1)
-            {
-                pageDataQueue.Enqueue(tempByteList.ToArray());
-                totalBytes += tempByteList.ToArray().Length;
-                tempByteList.Clear();
-            }
-        }
+    //         tempByteList.Add(hexFileData[i]);
 
-        serialPort.Write("RTU\r");
-        Console.WriteLine($"qbdude: Writing flash ({hexFileData.Length} bytes):\n");
-    }
+    //         if ((i - 255) % 256 == 0 || i == hexFileData.Length - 1)
+    //         {
+    //             pageDataQueue.Enqueue(tempByteList.ToArray());
+    //             totalBytes += tempByteList.ToArray().Length;
+    //             tempByteList.Clear();
+    //         }
+    //     }
+
+    //     serialPort.Write("RTU\r");
+    //     Console.WriteLine($"qbdude: Writing flash ({hexFileData.Length} bytes):\n");
+    // }
 
     private void SerialPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
     {
@@ -150,8 +179,6 @@ public sealed class FirmwareUploadUtility
         {
             receivedData = string.Empty;
 
-            // Thread t = new Thread(new ThreadStart(OnAllPagesWritten));
-            // t.Start();
             updating = false;
         }
     }
