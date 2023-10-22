@@ -1,13 +1,15 @@
-#include <avr/io.h>
+#include "Timer.h"
+#include "USART.h"
 #include <avr/boot.h>
 #include <avr/interrupt.h>
+#include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <avr/wdt.h>
-#include <util/delay.h>
 #include <stdbool.h>
-#include "USART.h"
-#include "Timer.h"
+#include <util/delay.h>
+// #include <avr/signature.h>
 
+void resetMCU(void);
 char writePageToFlash(volatile uint8_t *buf);
 int isCommandValid(volatile uint8_t data[]);
 
@@ -23,148 +25,178 @@ volatile bool writingToFlash = false;
 
 ISR(USART1_RX_vect)
 {
-  usartData[dataCounter] = USART1::receiveData();
+    usartData[dataCounter] = USART1::receiveData();
 
-  if (waitingForCommand)
-  {
-    if (usartData[dataCounter] == '\r')
+    if (waitingForCommand)
     {
-      commandReceived = true;
-      dataCounter = 0;
-      waitingForCommand = false;
-      return;
+        if (usartData[dataCounter] == '\r')
+        {
+            commandReceived = true;
+            dataCounter = 0;
+            waitingForCommand = false;
+            return;
+        }
     }
-  }
 
-  if (writingToFlash)
-  {
-    USART1::transmitData("\r");
-  }
+    if (writingToFlash)
+    {
+        USART1::transmitData("\r");
+    }
 
-  dataCounter++;
+    dataCounter++;
 }
 
 int main(void)
 {
-  bool applicationExist = pgm_read_word(0) != 0xFFFF;
-  int watchdogResetFlag = MCUCSR & _BV(WDRF);
-  int powerOnResetFlag = MCUCSR & _BV(PORF);
+    DDRE = 0x00;
+    PORTE = _BV(PE0);
+    int time = 0;
+    bool applicationExist = pgm_read_word(0) != 0xFFFF;
+    // int watchdogResetFlag = MCUCSR & _BV(WDRF);
+    // int powerOnResetFlag = MCUCSR & _BV(PORF);
 
-  if ((watchdogResetFlag || powerOnResetFlag) && applicationExist)
-  {
-    MCUCSR &= ~(watchdogResetFlag | powerOnResetFlag);
-    cli();
-    asm("jmp 0x000");
-  }
-
-  MCUCR = _BV(IVCE);
-  MCUCR = _BV(IVSEL);
-
-  USART1::configure(3, Databits::Eight, Parity::None, StopBits::One, ClkPolarity::FallingRising, Mode::Async);
-  TIMER::startResetTimer();
-  TIMER::startBootloaderIndicator();
-  sei();
-
-  while (1)
-  {
-    if (commandReceived)
+    while (time < 7)
     {
-      switch (isCommandValid(usartData))
-      {
-      case 0:
-        USART1::transmitData("NACK");
-        waitingForCommand = true;
-        break;
-      case 1:
-        writingToFlash = true;
-        USART1::transmitData("CTU");
-        break;
-      }
+        if (!(PINE & 0x01))
+        {
+            time++;
+            _delay_ms(1000);
+        }
+        else
+        {
+            if (applicationExist)
+            {
+                // MCUCSR &= ~(watchdogResetFlag | powerOnResetFlag);
+                cli();
+                asm("jmp 0x000");
+            }
 
-      commandReceived = false;
+            break;
+        }
     }
+    // bool applicationExist = pgm_read_word(0) != 0xFFFF;
+    // int watchdogResetFlag = MCUCSR & _BV(WDRF);
+    // int powerOnResetFlag = MCUCSR & _BV(PORF);
 
-    if (dataCounter == 259 && writingToFlash)
+    // if ((watchdogResetFlag || powerOnResetFlag) && applicationExist)
+    // {
+    //     MCUCSR &= ~(watchdogResetFlag | powerOnResetFlag);
+    //     cli();
+    //     asm("jmp 0x000");
+    // }
+
+    // Move interrupt vectors to the begging of the bootloader section.
+    MCUCR = _BV(IVCE);
+    MCUCR = _BV(IVSEL);
+
+    USART1::configure(3, Databits::Eight, Parity::None, StopBits::One, ClkPolarity::FallingRising, Mode::Async);
+    TIMER::startResetTimer();
+    TIMER::startBootloaderIndicator();
+    sei();
+
+    while (1)
     {
-      char finalByte = writePageToFlash(usartData);
-      _delay_ms(50);
+        if (commandReceived)
+        {
+            switch (isCommandValid(usartData))
+            {
+            case 0:
+                USART1::transmitData("NACK");
+                waitingForCommand = true;
+                break;
+            case 1:
+                writingToFlash = true;
+                USART1::transmitData("CTU");
+                break;
+            }
 
-      if (finalByte != '\xFE')
-      {
-        dataCounter = 0;
-        USART1::transmitData("Page");
-      }
-      else
-      {
-        TIMER::stopResetTimer();
-        TIMER::stopBootloaderIndicator();
-        USART1::transmitData("Complete");
-        wdt_enable(WDTO_15MS);
-      }
-    }
+            commandReceived = false;
+        }
 
-    if (!writingToFlash && TIMER::resetTimer >= 20 && applicationExist)
-    {
-      TIMER::stopResetTimer();
-      TIMER::stopBootloaderIndicator();
-      wdt_enable(WDTO_15MS);
+        if (dataCounter == 259 && writingToFlash)
+        {
+            char finalByte = writePageToFlash(usartData);
+            _delay_ms(50);
+
+            if (finalByte != '\xFE')
+            {
+                dataCounter = 0;
+                USART1::transmitData("Page");
+            }
+            else
+            {
+                USART1::transmitData("Complete");
+                resetMCU();
+            }
+        }
+
+        if (!writingToFlash && TIMER::resetTimer >= 20 && applicationExist)
+        {
+            resetMCU();
+        }
     }
-  }
+}
+
+void resetMCU(void)
+{
+    TIMER::stopResetTimer();
+    TIMER::stopBootloaderIndicator();
+    wdt_enable(WDTO_15MS);
 }
 
 int isCommandValid(volatile uint8_t command[])
 {
-  for (int i = 0; i < 4; i++)
-  {
-    if (command[i] != updateCommand[i])
+    for (int i = 0; i < 4; i++)
     {
-      return 0;
+        if (command[i] != updateCommand[i])
+        {
+            return 0;
+        }
     }
-  }
 
-  return 1;
+    return 1;
 }
 
 char writePageToFlash(volatile uint8_t *buf)
 {
-  // Extract the page from the first two entries of the data array. Separates them into high and low bit.
-  uint16_t pageNumberH = (*buf++) << 8;
-  uint16_t pageNumberL = *buf++;
+    // Extract the page from the first two entries of the data array. Separates them into high and low bit.
+    uint16_t pageNumberH = (*buf++) << 8;
+    uint16_t pageNumberL = *buf++;
 
-  // Get the page address by multiplying the page size times the page number.
-  uint16_t pageAddress = (pageNumberH + pageNumberL) * SPM_PAGESIZE;
+    // Get the page address by multiplying the page size times the page number.
+    uint16_t pageAddress = (pageNumberH + pageNumberL) * SPM_PAGESIZE;
 
-  cli();
+    cli();
 
-  // Wait for any active eeprom writes to complete.
-  eeprom_busy_wait();
+    // Wait for any active eeprom writes to complete.
+    eeprom_busy_wait();
 
-  // Erase memory page.
-  boot_page_erase(pageAddress);
+    // Erase memory page.
+    boot_page_erase(pageAddress);
 
-  // Wait until the memory is erased.
-  boot_spm_busy_wait();
+    // Wait until the memory is erased.
+    boot_spm_busy_wait();
 
-  for (uint16_t i = 0; i < SPM_PAGESIZE; i += 2)
-  {
-    // Build opcode while setting up little-endian word.
-    uint16_t opcode = *buf++;
-    opcode += (*buf++) << 8;
+    for (uint16_t i = 0; i < SPM_PAGESIZE; i += 2)
+    {
+        // Build opcode while setting up little-endian word.
+        uint16_t opcode = *buf++;
+        opcode += (*buf++) << 8;
 
-    // Load page temp buffers
-    boot_page_fill(pageAddress + i, opcode);
-  }
+        // Load page temp buffers
+        boot_page_fill(pageAddress + i, opcode);
+    }
 
-  // Store buffer in flash page.
-  boot_page_write(pageAddress);
+    // Store buffer in flash page.
+    boot_page_write(pageAddress);
 
-  // Wait until the memory is written.
-  boot_spm_busy_wait();
+    // Wait until the memory is written.
+    boot_spm_busy_wait();
 
-  // Enable Read While Write Section
-  boot_rww_enable();
-  sei();
+    // Enable Read While Write Section
+    boot_rww_enable();
+    sei();
 
-  // Return the final bayte of the dataArray;
-  return *buf;
+    // Return the final bayte of the dataArray;
+    return *buf;
 }
