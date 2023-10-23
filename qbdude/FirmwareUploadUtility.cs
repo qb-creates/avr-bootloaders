@@ -155,7 +155,7 @@ public sealed class FirmwareUploadUtility
         {
             receivedData = string.Empty;
 
-            ProgressBar.Instance.StartProgress("Writing");
+            ProgressBar.Instance.StartProgressBar("Writing");
 
             Thread t = new Thread(new ThreadStart(TransmitDataToMCU));
             t.Start();
@@ -166,7 +166,7 @@ public sealed class FirmwareUploadUtility
             receivedData = string.Empty;
 
             int percentage = (int)((bytesTransmitted / totalBytes) * 100);
-            ProgressBar.Instance.UpdateProgress(percentage);
+            ProgressBar.Instance.UpdateProgressBar(percentage);
         }
         else if (receivedData.Contains("Page"))
         {

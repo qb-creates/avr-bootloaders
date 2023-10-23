@@ -7,9 +7,12 @@ namespace qbdude;
 /// </summary>
 public sealed class HexReaderUtility
 {
-    private static HexReaderUtility? instance;
+    private const string INTEL_EOF_RECORD = ":00000001FF\r\n";
+    private readonly Regex byteMatcher = new Regex(@"[A-F0-9]{2}");
 
     public byte[] HexFileData { get; private set; } = new byte[0];
+
+    private static HexReaderUtility? instance;
 
     public static HexReaderUtility Instance
     {
@@ -34,62 +37,61 @@ public sealed class HexReaderUtility
     /// <returns></returns>
     public async Task ReadHexFile(string filePath)
     {
+        Console.WriteLine($"qbdude: Reading input file '{filePath}'\n");
+        string errorMessage = String.Empty;
+
         try
         {
-            Console.WriteLine($"qbdude: Reading input file '{filePath}'\n");
-            double totalBytes = new FileInfo(filePath).Length;
-            double bytesTransmitted = 0;
-            double bytesTransmitted1 = 0;
-
-
             using (StreamReader sr = new StreamReader(filePath))
             {
-                var a = sr.ReadToEnd();
-                var total = a.Length;
+                var hexFileString = sr.ReadToEnd();
 
-                var b = a.Substring(0, a.IndexOf("\r\n") + 2);
-                a = a.Remove(0, b.Length);
-            }
-
-            using (StreamReader sr = new StreamReader(filePath))
-            {
-                ProgressBar.Instance.StartProgress("Reading");
-
-                string? line = string.Empty;
-                byte[] hexFileData = new byte[0];
-
-                while ((line = sr.ReadLine()) != null)
+                if (!hexFileString.EndsWith(INTEL_EOF_RECORD))
                 {
-                    if (line != null)
-                    {
-                        bytesTransmitted += line.Length;
-                        line = line.Substring(9, (line.Length - 9 - 2));
-                        byte[] result = Regex.Matches(line, @"[A-F0-9]{2}").Cast<Match>().Select(match => Convert.ToByte(match.Value, 16)).ToArray();
-
-                        hexFileData = hexFileData.Concat(result).ToArray();
-                        if (String.IsNullOrEmpty(line))
-                        {
-                            Console.Write("sdfds");
-                        }
-                        int percentage = (int)((bytesTransmitted / totalBytes) * 100);
-                        ProgressBar.Instance.UpdateProgress(percentage);
-                    }
+                    throw new Exception("Hex file is not in the correct format. Upload canceled");
                 }
 
-                HexFileData = hexFileData;
+                // Remove the intel ending hex sequence from the string
+                hexFileString = hexFileString.Remove(hexFileString.Length - INTEL_EOF_RECORD.Length);
+
+                ProgressBar.Instance.StartProgressBar("Reading", hexFileString.Length);
+
+                while (!String.IsNullOrEmpty(hexFileString))
+                {
+                    // Get the length of the first line of the hex data string
+                    int lineLength = hexFileString.IndexOf("\r\n");
+
+                    if (lineLength == -1)
+                    {
+                        throw new Exception("Hex file is not in the correct format. Upload canceled");
+                    }
+
+                    // Extract the code from the first line
+                    string extractedCode = hexFileString.Substring(9, lineLength - 11);
+
+                    // Convert the extracted code into a byte array
+                    var result = byteMatcher.Matches(extractedCode).Select(match => Convert.ToByte(match.Value, 16));
+                    HexFileData = HexFileData.Concat(result).ToArray();
+
+                    hexFileString = hexFileString.Remove(0, lineLength + 2);
+                    ProgressBar.Instance.UpdateProgressBar2(lineLength + 2);
+                }
+
                 await ProgressBar.Instance.StopProgressBar();
             }
         }
         catch (FileNotFoundException)
         {
-            Console.WriteLine($"qbdude: can't open input file {filePath}: No such file or directory.\n");
-            Console.WriteLine($"qbdude done. Thank You.\n");
-            Environment.Exit(0);
+            errorMessage = $"\nqbdude: can't open input file {filePath}: No such file or directory.\n";
         }
         catch (Exception e)
         {
-            Console.WriteLine($"{e}.\n");
-            Console.WriteLine($"qbdude done. Thank You.\n");
+            errorMessage = $"\n{e.Message}.\n";
+        }
+
+        if (!String.IsNullOrEmpty(errorMessage))
+        {
+            Console.WriteLine($"{errorMessage}qbdude done. Thank You.\n");
             Environment.Exit(0);
         }
     }

@@ -24,7 +24,7 @@ public sealed class ProgressBar
     }
     private ProgressBar() { }
 
-    public void StartProgress(string operationText)
+    public void StartProgressBar(string operationText)
     {
         if (!isActive)
         {
@@ -37,7 +37,23 @@ public sealed class ProgressBar
         }
     }
 
-    public void UpdateProgress(int percentage)
+    private int startingValue = 0;
+    public void StartProgressBar(string operationText, int startingValue)
+    {
+        if (!isActive)
+        {
+            this.startingValue = startingValue;
+            tempValue = 0;
+            source = new CancellationTokenSource();
+            this.operationText = operationText;
+            isActive = true;
+
+            Thread t = new Thread(() => ProgressBarTimer(source.Token));
+            t.Start();
+        }
+    }
+
+    public void UpdateProgressBar(int percentage)
     {
         if (isActive)
         {
@@ -54,17 +70,37 @@ public sealed class ProgressBar
             }
         }
     }
+    private int tempValue = 0;
+    public void UpdateProgressBar2(int add)
+    {
+        tempValue += add;
+        if (isActive)
+        {
+            int percentage = (int)(tempValue / startingValue * 100);
+            if (percentage % 2 == 0 && percentage != previousPercentage && percentage <= 100)
+            {
+                for (int i = previousPercentage / 2; i < percentage / 2; i++)
+                {
+                    progressBar = progressBar.Remove(i, 1).Insert(i, "#");
+                }
 
-    public async Task StopProgressBar() 
+                Console.SetCursorPosition(0, Console.CursorTop);
+                Console.Write($@"{operationText} | {progressBar} | {percentage}%");
+                previousPercentage = percentage;
+            }
+        }
+    }
+
+    public async Task StopProgressBar()
     {
         source.Cancel();
-        
-        while(isActive)
+
+        while (isActive)
         {
             await Task.Delay(1);
         }
     }
-    
+
     private void ProgressBarTimer(CancellationToken token)
     {
         while (true)
