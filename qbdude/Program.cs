@@ -17,10 +17,10 @@ class Program
                    .AddPartNumbersCommand(PrintSupportedPartNumbers);
 
         var parser = new CommandLineBuilder(rootCommand)
-                    .UseVersionOption("-v")
                     .ConfigureHelp("-h")
                     .AddParseErrorReport(1)
                     .PrintHeaderForCommands()
+                    .PrintFooterForCommands()
                     .UseExceptionHandler()
                     .CancelOnProcessTermination()
                     .Build();
@@ -50,7 +50,7 @@ class Program
         }
     }
 
-    static async void StartUpload(string partNumber, string com, string filepath, bool force)
+    static async Task StartUpload(string partNumber, string com, string filepath, bool force)
     {
         var selectedMCU = Microcontroller.DeviceDictionary[partNumber];
         var hexFileData = await HexReaderUtility.Instance.ReadHexFile(filepath);
