@@ -1,15 +1,13 @@
 using System.CommandLine;
-using System.CommandLine.Builder;
-using System.CommandLine.Invocation;
-using Spectre.Console;
-using static qbdude.ValidatorUtility;
+using static qbdude.OptionValidator;
 
 namespace qbdude.extensions;
 
+/// <summary>
+/// Holds a collection of extentions methods for the <see cref="RootCommand" class/>
+/// </summary>
 public static class RootCommandExtensions
 {
-    private const string UPLOAD_COMMAND = "upload";
-
     /// <summary>
     /// Adds a comport sub command.
     /// </summary>
@@ -52,13 +50,13 @@ public static class RootCommandExtensions
     {
         var forceUploadOption = new Option<bool>("-f", "Will force upload for invalid signatures.");
 
-        var partNumberOption = new Option<string>(name: "-p", description: "The Part Number of the microcontroller.", parseArgument: ValidatePartNumber)
+        var partNumberOption = new Option<string>(name: "-p", description: "The Part Number of the microcontroller.", parseArgument: OnValidatePartNumber)
         {
             IsRequired = true,
             ArgumentHelpName = "PARTNUMBER"
         };
 
-        var comportOption = new Option<string>(name: "-C", description: "The com port that will be opened.", parseArgument: ValidateComPort)
+        var comportOption = new Option<string>(name: "-C", description: "The com port that will be opened.", parseArgument: OnValidateComPort)
         {
             IsRequired = true,
             ArgumentHelpName = "COMPORT"
@@ -69,7 +67,7 @@ public static class RootCommandExtensions
             IsRequired = true
         };
 
-        var uploadCommand = new Command(UPLOAD_COMMAND, "This command will upload the program to the microcontroller")
+        var uploadCommand = new Command("upload", "This command will upload the program to the microcontroller")
         {
             partNumberOption,
             comportOption,

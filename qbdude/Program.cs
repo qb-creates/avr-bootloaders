@@ -1,11 +1,9 @@
 ﻿using System.CommandLine;
 using System.CommandLine.Builder;
-using System.CommandLine.Help;
 using System.CommandLine.Parsing;
 using System.IO.Ports;
 using qbdude.extensions;
 using qbdude.Models;
-using Spectre.Console;
 
 namespace qbdude;
 
@@ -19,13 +17,12 @@ class Program
                    .AddPartNumbersCommand(PrintSupportedPartNumbers);
 
         var parser = new CommandLineBuilder(rootCommand)
-                    .UseVersionOption("-v").UseEnvironmentVariableDirective()
-                    .UseParseDirective()
-                    .RegisterWithDotnetSuggest()
+                    .UseVersionOption("-v")
+                    .ConfigureHelp("-h")
+                    .AddParseErrorReport(1)
+                    .PrintHeaderForCommands()
                     .UseExceptionHandler()
                     .CancelOnProcessTermination()
-                    .AddParseErrorReport(1)
-                    .ConfigureHelp("-h")
                     .Build();
 
         return await parser.InvokeAsync(args);
