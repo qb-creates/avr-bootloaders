@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.CommandLine.Builder;
 using System.CommandLine.Help;
 using System.CommandLine.Invocation;
+using System.Reflection;
 using qbdude.invocation.results;
 using Spectre.Console;
 
@@ -21,10 +22,25 @@ public static class CommandLineBuilderExtensions
     {
         commandLineBuilder.AddMiddleware(async delegate (InvocationContext context, Func<InvocationContext, Task> next)
          {
-             AnsiConsole.Write(new FigletText("QB.DUDE").Color(Color.Green1));
-
+             PrintHeader();
              await next(context);
          }, MiddlewareOrder.Configuration);
+
+        return commandLineBuilder;
+    }
+
+    /// <summary>
+    /// Prints the footer after commands are triggered. 
+    /// </summary>
+    /// <param name="commandLineBuilder">A command line builder.</param>
+    /// <returns></returns>
+    public static CommandLineBuilder PrintFooterForCommands(this CommandLineBuilder commandLineBuilder)
+    {
+        commandLineBuilder.AddMiddleware(async delegate (InvocationContext context, Func<InvocationContext, Task> next)
+         {
+             PrintFooter(context.ExitCode == 0);
+             await next(context);
+         }, MiddlewareOrder.ErrorReporting);
 
         return commandLineBuilder;
     }
@@ -42,17 +58,11 @@ public static class CommandLineBuilderExtensions
         {
             if (context.ParseResult.Errors.Count > 0)
             {
+                await context.ParseResult.CommandResult.Command.InvokeAsync(new string[] { "upload", "-h" });                
                 context.InvocationResult = new ParseErrorResult(errorExitCode);
-                await context.ParseResult.CommandResult.Command.InvokeAsync("-h");
 
-                Console.ForegroundColor = ConsoleColor.Red;
-
-                foreach (var error in context.ParseResult.Errors)
-                {
-                    Console.WriteLine(error);
-                }
-
-                Console.ForegroundColor = ConsoleColor.White;
+                PrintError(context);
+                PrintFooter(false);
                 return;
             }
 
@@ -75,15 +85,51 @@ public static class CommandLineBuilderExtensions
         {
             ctx.HelpBuilder.CustomizeLayout(ctx =>
             {
-                var helpSectionDelegate = HelpBuilder.Default.GetLayout().Prepend(ctx =>
-                {
-                    AnsiConsole.Write(new FigletText("QB.DUDE").Color(Color.Green1));
-                });
+                var helpSectionDelegate = HelpBuilder.Default.GetLayout()
+                .Append(ctx => PrintFooter(true))
+                .Prepend(ctx => PrintHeader());
 
                 return helpSectionDelegate;
             });
         });
 
         return commandLineBuilder;
+    }
+
+    private static void PrintHeader()
+    {
+        var fontPath = Path.GetDirectoryName(Assembly.GetEntryAssembly()!.Location); 
+        var font = FigletFont.Load($"{fontPath}\\Assets\\small.flf");
+        AnsiConsole.Write(new FigletText(font, "QB.DUDE").Color(Color.Green1));
+    }
+
+    private static void PrintFooter(bool success)
+    {
+        var textColor = success ? ConsoleColor.Green : ConsoleColor.Red;
+        var successText = success ? "SUCCESS" : "FAILURE";
+
+        // Make sure the text color is white
+        Console.ForegroundColor = ConsoleColor.White;
+        Console.Write($"\r\n==============================[");
+
+        // Update the text color of the success string
+        Console.ForegroundColor = textColor;
+        Console.Write($"{successText}");
+
+        // Make sure the text color is white
+        Console.ForegroundColor = ConsoleColor.White;
+        Console.WriteLine($"]====================================");
+    }
+
+    private static void PrintError(InvocationContext context)
+    {
+        Console.ForegroundColor = ConsoleColor.Red;
+
+        foreach (var error in context.ParseResult.Errors)
+        {
+            Console.WriteLine(error);
+        }
+
+        Console.ForegroundColor = ConsoleColor.White;
     }
 }

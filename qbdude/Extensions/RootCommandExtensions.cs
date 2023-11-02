@@ -46,7 +46,7 @@ public static class RootCommandExtensions
     /// <param name="rootCommand">Reference to the root command</param>
     /// <param name="uploadAction">Action to invoke when the upload command is passed in.</param>
     /// <returns>The same instance RootCommand.</returns>
-    public static RootCommand AddUploadCommand(this RootCommand rootCommand, Action<string, string, string, bool> uploadAction)
+    public static RootCommand AddUploadCommand(this RootCommand rootCommand, Func<string, string, string, bool, Task> uploadAction)
     {
         var forceUploadOption = new Option<bool>("-f", "Will force upload for invalid signatures.");
 
@@ -75,9 +75,9 @@ public static class RootCommandExtensions
             forceUploadOption
         };
 
-        uploadCommand.SetHandler((partNumber, com, filepath, force) =>
+        uploadCommand.SetHandler(async (partNumber, com, filepath, force) =>
         {
-            uploadAction(partNumber, com, filepath, force);
+            await uploadAction(partNumber, com, filepath, force);
 
         }, partNumberOption, comportOption, filePathOption, forceUploadOption);
 
