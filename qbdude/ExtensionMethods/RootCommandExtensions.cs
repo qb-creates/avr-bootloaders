@@ -4,7 +4,7 @@ using static qbdude.OptionValidator;
 namespace qbdude.extensions;
 
 /// <summary>
-/// Holds a collection of extentions methods for the <see cref="RootCommand" class/>
+/// Holds a collection of extentions methods for the RootCommand class/>
 /// </summary>
 public static class RootCommandExtensions
 {
@@ -44,9 +44,9 @@ public static class RootCommandExtensions
     /// Adds an upload sub command.
     /// </summary>
     /// <param name="rootCommand">Reference to the root command</param>
-    /// <param name="uploadAction">Action to invoke when the upload command is passed in.</param>
+    /// <param name="uploadFunc">Action to invoke when the upload command is passed in.</param>
     /// <returns>The same instance RootCommand.</returns>
-    public static RootCommand AddUploadCommand(this RootCommand rootCommand, Func<string, string, string, bool, Task> uploadAction)
+    public static RootCommand AddUploadCommand(this RootCommand rootCommand, Func<string, string, string, bool, Task<int>> uploadFunc)
     {
         var forceUploadOption = new Option<bool>("-f", "Will force upload for invalid signatures.");
 
@@ -77,8 +77,7 @@ public static class RootCommandExtensions
 
         uploadCommand.SetHandler(async (partNumber, com, filepath, force) =>
         {
-            await uploadAction(partNumber, com, filepath, force);
-
+            await uploadFunc(partNumber, com, filepath, force);
         }, partNumberOption, comportOption, filePathOption, forceUploadOption);
 
         rootCommand.AddCommand(uploadCommand);

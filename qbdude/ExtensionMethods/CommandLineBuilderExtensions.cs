@@ -9,7 +9,7 @@ using Spectre.Console;
 namespace qbdude.extensions;
 
 /// <summary>
-/// Holds a collection of extentions methods for the <see cref="CommandLineBuilder" class/>
+/// Holds a collection of extentions methods for the CommandLineBuilder class/>
 /// </summary>
 public static class CommandLineBuilderExtensions
 {
@@ -25,22 +25,6 @@ public static class CommandLineBuilderExtensions
              PrintHeader();
              await next(context);
          }, MiddlewareOrder.Configuration);
-
-        return commandLineBuilder;
-    }
-
-    /// <summary>
-    /// Prints the footer after commands are triggered. 
-    /// </summary>
-    /// <param name="commandLineBuilder">A command line builder.</param>
-    /// <returns></returns>
-    public static CommandLineBuilder PrintFooterForCommands(this CommandLineBuilder commandLineBuilder)
-    {
-        commandLineBuilder.AddMiddleware(async delegate (InvocationContext context, Func<InvocationContext, Task> next)
-         {
-             PrintFooter(context.ExitCode == 0);
-             await next(context);
-         }, MiddlewareOrder.ErrorReporting);
 
         return commandLineBuilder;
     }
@@ -62,7 +46,6 @@ public static class CommandLineBuilderExtensions
                 context.InvocationResult = new ParseErrorResult(errorExitCode);
 
                 PrintError(context);
-                PrintFooter(false);
                 return;
             }
 
@@ -86,7 +69,6 @@ public static class CommandLineBuilderExtensions
             ctx.HelpBuilder.CustomizeLayout(ctx =>
             {
                 var helpSectionDelegate = HelpBuilder.Default.GetLayout()
-                .Append(ctx => PrintFooter(true))
                 .Prepend(ctx => PrintHeader());
 
                 return helpSectionDelegate;
@@ -101,24 +83,6 @@ public static class CommandLineBuilderExtensions
         var fontPath = Path.GetDirectoryName(Assembly.GetEntryAssembly()!.Location); 
         var font = FigletFont.Load($"{fontPath}\\Assets\\small.flf");
         AnsiConsole.Write(new FigletText(font, "QB.DUDE").Color(Color.Green1));
-    }
-
-    private static void PrintFooter(bool success)
-    {
-        var textColor = success ? ConsoleColor.Green : ConsoleColor.Red;
-        var successText = success ? "SUCCESS" : "FAILURE";
-
-        // Make sure the text color is white
-        Console.ForegroundColor = ConsoleColor.White;
-        Console.Write($"\r\n==============================[");
-
-        // Update the text color of the success string
-        Console.ForegroundColor = textColor;
-        Console.Write($"{successText}");
-
-        // Make sure the text color is white
-        Console.ForegroundColor = ConsoleColor.White;
-        Console.WriteLine($"]====================================");
     }
 
     private static void PrintError(InvocationContext context)
