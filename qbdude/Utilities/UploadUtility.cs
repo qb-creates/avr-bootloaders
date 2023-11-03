@@ -1,8 +1,11 @@
 using System.IO.Ports;
 
-namespace qbdude;
+namespace qbdude.utilities;
 
-public sealed class FirmwareUploadUtility
+/// <summary>
+/// 
+/// </summary>
+public sealed class UploadUtility
 {
     private readonly byte[] endingSequence = new byte[10] { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
     private readonly byte[] endingSequence2 = new byte[10] { 0xFE, 0xFE, 0xFE, 0xFE, 0xFE, 0xFE, 0xFE, 0xFE, 0xFE, 0xFE };
@@ -13,22 +16,22 @@ public sealed class FirmwareUploadUtility
     private Queue<byte[]> pageDataQueue = new Queue<byte[]>();
     private bool updating = false;
 
-    private static FirmwareUploadUtility? instance;
+    private static UploadUtility? instance;
 
-    public static FirmwareUploadUtility Instance
+    public static UploadUtility Instance
     {
         get
         {
             if (instance == null)
             {
-                instance = new FirmwareUploadUtility();
+                instance = new UploadUtility();
             }
 
             return instance;
         }
     }
 
-    private FirmwareUploadUtility() { }
+    private UploadUtility() { }
 
     /// <summary>
     /// Opens the Com port for data communication.
@@ -37,7 +40,7 @@ public sealed class FirmwareUploadUtility
     public void OpenComPort(string comPort)
     {
         Console.WriteLine($"qbdude: Opening {comPort}");
-
+        
         serialPort.DataReceived += SerialPort_DataReceived;
         serialPort.PortName = comPort;
         serialPort.BaudRate = 115200;
@@ -155,7 +158,7 @@ public sealed class FirmwareUploadUtility
         {
             receivedData = string.Empty;
 
-            ProgressBar.Instance.StartProgressBar("Writing");
+            ProgressBarUtility.Instance.StartProgressBar("Writing");
 
             Thread t = new Thread(new ThreadStart(TransmitDataToMCU));
             t.Start();
@@ -166,7 +169,7 @@ public sealed class FirmwareUploadUtility
             receivedData = string.Empty;
 
             int percentage = (int)((bytesTransmitted / totalBytes) * 100);
-            ProgressBar.Instance.UpdateProgressBar(percentage);
+            ProgressBarUtility.Instance.UpdateProgressBar(percentage);
         }
         else if (receivedData.Contains("Page"))
         {

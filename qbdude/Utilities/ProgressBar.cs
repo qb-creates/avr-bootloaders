@@ -1,28 +1,29 @@
-namespace qbdude;
+namespace qbdude.utilities;
 
-public sealed class ProgressBar
+public sealed class ProgressBarUtility
 {
     private CancellationTokenSource source = new CancellationTokenSource();
     private string progressBar = "                                                  ";
-    private int previousPercentage = 0;
+    private string progressBarSymbol = "";
+    private long previousPercentage = 0;
     private int elaspedTime = 0;
     private string operationText = string.Empty;
     private bool isActive;
-    private static ProgressBar? instance;
+    private static ProgressBarUtility? instance;
 
-    public static ProgressBar Instance
+    public static ProgressBarUtility Instance
     {
         get
         {
             if (instance == null)
             {
-                instance = new ProgressBar();
+                instance = new ProgressBarUtility();
             }
 
             return instance;
         }
     }
-    private ProgressBar() { }
+    private ProgressBarUtility() { }
 
     public void StartProgressBar(string operationText)
     {
@@ -37,8 +38,8 @@ public sealed class ProgressBar
         }
     }
 
-    private int startingValue = 0;
-    public void StartProgressBar(string operationText, int startingValue)
+    private long startingValue = 0;
+    public async Task StartProgressBar(string operationText, long startingValue)
     {
         if (!isActive)
         {
@@ -48,6 +49,8 @@ public sealed class ProgressBar
             this.operationText = operationText;
             isActive = true;
 
+            Console.Write($@"{operationText} | {progressBar} | 0%");
+            await Task.Delay(1200);
             Thread t = new Thread(() => ProgressBarTimer(source.Token));
             t.Start();
         }
@@ -55,37 +58,57 @@ public sealed class ProgressBar
 
     public void UpdateProgressBar(int percentage)
     {
-        if (isActive)
+        try
         {
-            if (percentage % 2 == 0 && percentage != previousPercentage && percentage <= 100)
+            if (isActive)
             {
-                for (int i = previousPercentage / 2; i < percentage / 2; i++)
+                if (percentage % 2 == 0 && percentage != previousPercentage && percentage <= 100)
                 {
-                    progressBar = progressBar.Remove(i, 1).Insert(i, "#");
-                }
+                    for (long i = previousPercentage / 2; i < percentage / 2; i++)
+                    {
+                        progressBar = progressBar.Remove(0, 1);
+                        progressBarSymbol = progressBarSymbol.Insert(0, " ");
+                    }
 
-                Console.SetCursorPosition(0, Console.CursorTop);
-                Console.Write($@"{operationText} | {progressBar} | {percentage}%");
-                previousPercentage = percentage;
+                    Console.SetCursorPosition(0, Console.CursorTop);
+                    Console.Write($@"{operationText} | ");
+                    Console.BackgroundColor = ConsoleColor.Green;
+                    Console.Write($@"{progressBarSymbol}");
+                    Console.BackgroundColor = ConsoleColor.Black;
+                    Console.Write($@"{progressBar}");
+                    Console.Write($@" | {percentage}%");
+                    previousPercentage = percentage;
+                }
             }
         }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+        }
     }
-    private int tempValue = 0;
-    public void UpdateProgressBar2(int add)
+    private long tempValue = 0;
+    public void UpdateProgressBar2(long add)
     {
         tempValue += add;
         if (isActive)
         {
-            int percentage = (int)(tempValue / startingValue * 100);
+            long percentage = (long)((tempValue * 100) / startingValue);
             if (percentage % 2 == 0 && percentage != previousPercentage && percentage <= 100)
             {
-                for (int i = previousPercentage / 2; i < percentage / 2; i++)
+                for (long i = previousPercentage / 2; i < percentage / 2; i++)
                 {
-                    progressBar = progressBar.Remove(i, 1).Insert(i, "#");
+                    progressBar = progressBar.Remove(0, 1);
+                    progressBarSymbol = progressBarSymbol.Insert(0, " ");
                 }
 
                 Console.SetCursorPosition(0, Console.CursorTop);
-                Console.Write($@"{operationText} | {progressBar} | {percentage}%");
+                Console.Write($@"{operationText} | ");
+                Console.BackgroundColor = ConsoleColor.Green;
+                Console.Write($@"{progressBarSymbol}");
+                Console.BackgroundColor = ConsoleColor.Black;
+                Console.Write($@"{progressBar}");
+                Console.Write($@" | {percentage}%");
+                previousPercentage = percentage;
                 previousPercentage = percentage;
             }
         }

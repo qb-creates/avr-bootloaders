@@ -2,7 +2,7 @@ using System.CommandLine.Parsing;
 using System.IO.Ports;
 using qbdude.Models;
 
-namespace qbdude;
+namespace qbdude.validators;
 
 /// <summary>
 /// This class holds methoads that will be used to validate option arguments.

@@ -2,8 +2,10 @@
 using System.CommandLine.Builder;
 using System.CommandLine.Parsing;
 using System.IO.Ports;
+using qbdude.exceptions;
 using qbdude.extensions;
 using qbdude.Models;
+using qbdude.utilities;
 
 namespace qbdude;
 
@@ -20,15 +22,31 @@ class Program
                     .ConfigureHelp("-h")
                     .AddParseErrorReport(1)
                     .PrintHeaderForCommands()
-                    .PrintFooterForCommands()
-                    .UseExceptionHandler()
                     .CancelOnProcessTermination()
+                    .UseExceptionHandler((e, ctx) =>
+                    {
+                        var ex = (e as CommandException);
+                        Console.WriteLine(ex.Message);
+
+                        if (ex == null)
+                        {
+                            ctx.ExitCode = 1;
+                            return;
+                        }
+
+                        ctx.ExitCode = (int)ex.ExitCode;
+                    })
                     .Build();
 
-        return await parser.InvokeAsync(args);
+        var exitCode = await parser.InvokeAsync(args);
+
+        PrintSuccessBar(exitCode == 0);
+
+        return exitCode;
     }
 
-    static void PrintComPorts()
+
+    private static void PrintComPorts()
     {
         Console.WriteLine("\nAvailable Com Ports:");
         var serialPorts = SerialPort.GetPortNames();
@@ -39,7 +57,7 @@ class Program
         }
     }
 
-    static void PrintSupportedPartNumbers()
+    private static void PrintSupportedPartNumbers()
     {
         Console.WriteLine($"\n{"Name",-15}{"Part Number",-15}{"Flash Size",-20}{"Signature",-10}");
 
@@ -50,20 +68,38 @@ class Program
         }
     }
 
-    static async Task StartUpload(string partNumber, string com, string filepath, bool force)
+    private static async Task<int> StartUpload(string partNumber, string com, string filepath, bool force)
     {
         var selectedMCU = Microcontroller.DeviceDictionary[partNumber];
         var hexFileData = await HexReaderUtility.Instance.ReadHexFile(filepath);
 
         if (hexFileData.Length > selectedMCU.FlashSize)
         {
-            Console.WriteLine("Selected MCU does not have enough space for this program");
-            Environment.Exit(1);
+            throw new Exception("Selected MCU does not have enough space for this program");
         }
 
-        FirmwareUploadUtility.Instance.OpenComPort(com);
-        await FirmwareUploadUtility.Instance.Update(hexFileData);
-        await ProgressBar.Instance.StopProgressBar();
+        UploadUtility.Instance.OpenComPort(com);
+        await UploadUtility.Instance.Update(hexFileData);
+        await ProgressBarUtility.Instance.StopProgressBar();
         Console.WriteLine($"qbdude done. Thank you.\n");
+        return 0;
+    }
+
+    private static void PrintSuccessBar(bool success)
+    {
+        var textColor = success ? ConsoleColor.Green : ConsoleColor.Red;
+        var successText = success ? "SUCCESS" : "FAILURE";
+
+        // Make sure the text color is white
+        Console.ForegroundColor = ConsoleColor.White;
+        Console.Write($"\r\n==============================[");
+
+        // Update the text color of the success string
+        Console.ForegroundColor = textColor;
+        Console.Write($"{successText}");
+
+        // Make sure the text color is white
+        Console.ForegroundColor = ConsoleColor.White;
+        Console.WriteLine($"]====================================");
     }
 }

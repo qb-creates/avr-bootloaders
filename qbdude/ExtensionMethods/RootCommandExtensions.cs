@@ -1,5 +1,5 @@
 using System.CommandLine;
-using static qbdude.OptionValidator;
+using static qbdude.validators.OptionValidator;
 
 namespace qbdude.extensions;
 
