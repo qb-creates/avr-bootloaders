@@ -26,15 +26,9 @@ class Program
                     .UseExceptionHandler((e, ctx) =>
                     {
                         var ex = (e as CommandException);
-                        Console.WriteLine(ex.Message);
 
-                        if (ex == null)
-                        {
-                            ctx.ExitCode = 1;
-                            return;
-                        }
-
-                        ctx.ExitCode = (int)ex.ExitCode;
+                        ctx.ExitCode = ex != null ? (int)ex.ExitCode : 1;
+                        Console.WriteLine(e?.Message);
                     })
                     .Build();
 
@@ -45,13 +39,27 @@ class Program
         return exitCode;
     }
 
+    private static async Task StartUpload(string partNumber, string com, string filepath, bool force)
+    {
+        var selectedMCU = Microcontroller.DeviceDictionary[partNumber];
+        var hexFileData = await HexReaderUtility.ReadHexFile(filepath);
+
+        if (hexFileData.Length > selectedMCU.FlashSize)
+        {
+            throw new Exception("Selected MCU does not have enough space for this program");
+        }
+
+        UploadUtility.Instance.OpenComPort(com);
+        await UploadUtility.Instance.Update(hexFileData);
+        await ProgressBarUtility.Instance.StopProgressBar();
+        Console.WriteLine($"qbdude done. Thank you.\n");
+    }
 
     private static void PrintComPorts()
     {
         Console.WriteLine("\nAvailable Com Ports:");
-        var serialPorts = SerialPort.GetPortNames();
-
-        foreach (string serialPort in serialPorts)
+        
+        foreach (string serialPort in SerialPort.GetPortNames())
         {
             Console.WriteLine(serialPort);
         }
@@ -66,23 +74,6 @@ class Program
             var signature = String.Join("", kvp.Value.Signature);
             Console.WriteLine($"{kvp.Value.Name,-15}{kvp.Key,-15}{kvp.Value.FlashSize,-20}{signature,-20}");
         }
-    }
-
-    private static async Task<int> StartUpload(string partNumber, string com, string filepath, bool force)
-    {
-        var selectedMCU = Microcontroller.DeviceDictionary[partNumber];
-        var hexFileData = await HexReaderUtility.Instance.ReadHexFile(filepath);
-
-        if (hexFileData.Length > selectedMCU.FlashSize)
-        {
-            throw new Exception("Selected MCU does not have enough space for this program");
-        }
-
-        UploadUtility.Instance.OpenComPort(com);
-        await UploadUtility.Instance.Update(hexFileData);
-        await ProgressBarUtility.Instance.StopProgressBar();
-        Console.WriteLine($"qbdude done. Thank you.\n");
-        return 0;
     }
 
     private static void PrintSuccessBar(bool success)

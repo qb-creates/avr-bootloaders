@@ -46,7 +46,7 @@ public static class RootCommandExtensions
     /// <param name="rootCommand">Reference to the root command</param>
     /// <param name="uploadFunc">Action to invoke when the upload command is passed in.</param>
     /// <returns>The same instance RootCommand.</returns>
-    public static RootCommand AddUploadCommand(this RootCommand rootCommand, Func<string, string, string, bool, Task<int>> uploadFunc)
+    public static RootCommand AddUploadCommand(this RootCommand rootCommand, Func<string, string, string, bool, Task> uploadFunc)
     {
         var forceUploadOption = new Option<bool>("-f", "Will force upload for invalid signatures.");
 
