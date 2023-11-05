@@ -1,148 +1,125 @@
 namespace qbdude.utilities;
 
-public sealed class ProgressBarUtility
+/// <summary>
+/// Will create a progress bar UI element in the console. Nothing should be printed to the to the console
+/// while the progress bar is active. Contains a static "Start" method that will generate a ProgressBar
+/// object and return it. Progress bar should be wrapped in a using block or "Disposed" when it is no longer
+/// needed.
+/// </summary>
+public sealed class ProgressBar : IDisposable
 {
-    private CancellationTokenSource source = new CancellationTokenSource();
-    private string progressBar = "                                                  ";
-    private string progressBarSymbol = "";
-    private long previousPercentage = 0;
-    private int elaspedTime = 0;
-    private string operationText = string.Empty;
-    private bool isActive;
-    private static ProgressBarUtility? instance;
+    private static readonly object s_progressBarLocker = new object();
+    private static List<ProgressBar> s_progressBarList = new List<ProgressBar>();
+    private static int s_cursorLastPosition = 0;
 
-    public static ProgressBarUtility Instance
+    /// <summary>
+    /// Instantiates a new instance of a progress bar and displays it in the console.
+    /// The timer will be started and progress can be updated by calling ProgressBar.Update.
+    /// </summary>
+    /// <param name="operationText">The operation that is being performed.</param>
+    /// <param name="itemsToComplete">The total number of items that need to be completed.</param>
+    /// <returns>Returns a new instance of a progress bar.</returns>
+    public static ProgressBar Instantiate(string operationText, long itemsToComplete)
     {
-        get
+        lock (s_progressBarLocker)
         {
-            if (instance == null)
+            ProgressBar progressBar = new ProgressBar(operationText, itemsToComplete);
+            s_progressBarList.Add(progressBar);
+
+            return progressBar;
+        }
+    }
+
+    private string _operationText = string.Empty;
+    private string _emptyProgressContainer = "                                                  ";
+    private string _filledProgressContainer = "";
+    private double _elaspedTime = 0;
+    private long _itemsCompleted = 0;
+    private long _itemsToComplete = 0;
+    private long _previousPercentage = 0;
+    private readonly int _cursorTop = 0;
+    private readonly int _cursorLeft = 0;
+    private Timer? _progressTimer;
+
+    private ProgressBar(string operationText, long itemsToComplete)
+    {
+        Console.CursorVisible = false;
+        Console.Write($@"{operationText} | {_emptyProgressContainer} | 0%");
+
+        s_cursorLastPosition = Console.CursorTop + 2;
+        _cursorTop = Console.CursorTop;
+        _cursorLeft = Console.CursorLeft + 4;
+        _operationText = operationText;
+        _itemsToComplete = itemsToComplete;
+        _progressTimer = new Timer(ProgressBarTimer, null, 0, 10);
+    }
+
+    /// <summary>
+    /// Releases all resources used by the current instance of ProgressBar.
+    /// </summary>
+    public void Dispose()
+    {
+        if (_progressTimer == null)
+        {
+            return;
+        }
+
+        lock (s_progressBarLocker)
+        {
+            _progressTimer.Dispose();
+            s_progressBarList.Remove(this);
+
+            if (s_progressBarList.Count == 0)
             {
-                instance = new ProgressBarUtility();
-            }
-
-            return instance;
-        }
-    }
-    private ProgressBarUtility() { }
-
-    public void StartProgressBar(string operationText)
-    {
-        if (!isActive)
-        {
-            source = new CancellationTokenSource();
-            this.operationText = operationText;
-            isActive = true;
-
-            Thread t = new Thread(() => ProgressBarTimer(source.Token));
-            t.Start();
-        }
-    }
-
-    private long startingValue = 0;
-    public async Task StartProgressBar(string operationText, long startingValue)
-    {
-        if (!isActive)
-        {
-            this.startingValue = startingValue;
-            tempValue = 0;
-            source = new CancellationTokenSource();
-            this.operationText = operationText;
-            isActive = true;
-
-            Console.Write($@"{operationText} | {progressBar} | 0%");
-            await Task.Delay(1200);
-            Thread t = new Thread(() => ProgressBarTimer(source.Token));
-            t.Start();
-        }
-    }
-
-    public void UpdateProgressBar(int percentage)
-    {
-        try
-        {
-            if (isActive)
-            {
-                if (percentage % 2 == 0 && percentage != previousPercentage && percentage <= 100)
-                {
-                    for (long i = previousPercentage / 2; i < percentage / 2; i++)
-                    {
-                        progressBar = progressBar.Remove(0, 1);
-                        progressBarSymbol = progressBarSymbol.Insert(0, " ");
-                    }
-
-                    Console.SetCursorPosition(0, Console.CursorTop);
-                    Console.Write($@"{operationText} | ");
-                    Console.BackgroundColor = ConsoleColor.Green;
-                    Console.Write($@"{progressBarSymbol}");
-                    Console.BackgroundColor = ConsoleColor.Black;
-                    Console.Write($@"{progressBar}");
-                    Console.Write($@" | {percentage}%");
-                    previousPercentage = percentage;
-                }
-            }
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-        }
-    }
-    private long tempValue = 0;
-    public void UpdateProgressBar2(long add)
-    {
-        tempValue += add;
-        if (isActive)
-        {
-            long percentage = (long)((tempValue * 100) / startingValue);
-            if (percentage % 2 == 0 && percentage != previousPercentage && percentage <= 100)
-            {
-                for (long i = previousPercentage / 2; i < percentage / 2; i++)
-                {
-                    progressBar = progressBar.Remove(0, 1);
-                    progressBarSymbol = progressBarSymbol.Insert(0, " ");
-                }
-
-                Console.SetCursorPosition(0, Console.CursorTop);
-                Console.Write($@"{operationText} | ");
-                Console.BackgroundColor = ConsoleColor.Green;
-                Console.Write($@"{progressBarSymbol}");
-                Console.BackgroundColor = ConsoleColor.Black;
-                Console.Write($@"{progressBar}");
-                Console.Write($@" | {percentage}%");
-                previousPercentage = percentage;
-                previousPercentage = percentage;
+                Console.SetCursorPosition(0, s_cursorLastPosition);
+                Console.CursorVisible = true;
             }
         }
     }
 
-    public async Task StopProgressBar()
+    /// <summary>
+    /// Updates the progress bar with the items that were completed. The value passed in will be added to the
+    /// current to the previous ammount passed in.
+    /// </summary>
+    /// <param name="items">The number of new that were completed since the last Update call.</param>
+    public void Update(long items)
     {
-        source.Cancel();
+        _itemsCompleted += items;
 
-        while (isActive)
+        long percentage = (long)(100 * _itemsCompleted / _itemsToComplete);
+
+        if (percentage % 2 != 0 || percentage == _previousPercentage || percentage > 100)
         {
-            await Task.Delay(1);
+            return;
         }
+
+        for (long i = _previousPercentage; i < percentage; i += 2)
+        {
+            _emptyProgressContainer = _emptyProgressContainer.Remove(0, 1);
+            _filledProgressContainer = _filledProgressContainer.Insert(0, " ");
+        }
+
+        lock (s_progressBarLocker)
+        {
+            Console.SetCursorPosition(0, _cursorTop);
+            Console.Write($@"{_operationText} | ");
+            Console.BackgroundColor = ConsoleColor.Green;
+            Console.Write($@"{_filledProgressContainer}");
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.Write($@"{_emptyProgressContainer} | {percentage}%");
+        }
+
+        _previousPercentage = percentage;
     }
 
-    private void ProgressBarTimer(CancellationToken token)
+    private void ProgressBarTimer(object? state)
     {
-        while (true)
+        lock (s_progressBarLocker)
         {
-            if (token.IsCancellationRequested)
-            {
-                progressBar = "                                                  ";
-                previousPercentage = 0;
-                elaspedTime = 0;
-                isActive = false;
-                Console.WriteLine("\n");
-                return;
-            }
-
-            Console.CursorVisible = false;
-            Console.SetCursorPosition(69, Console.CursorTop);
-            Console.Write($@"{elaspedTime}s");
-            Thread.Sleep(1000);
-            elaspedTime++;
+            Console.SetCursorPosition(_cursorLeft, _cursorTop);
+            Console.Write("{0:N2}s", _elaspedTime);
         }
+
+        _elaspedTime += 0.01;
     }
 }

@@ -42,16 +42,16 @@ class Program
     private static async Task StartUpload(string partNumber, string com, string filepath, bool force)
     {
         var selectedMCU = Microcontroller.DeviceDictionary[partNumber];
-        var hexFileData = await HexReaderUtility.ReadHexFile(filepath);
+        var programData = HexReaderUtility.ExtractProgramData(filepath);
 
-        if (hexFileData.Length > selectedMCU.FlashSize)
+        if (programData.Length > selectedMCU.FlashSize)
         {
             throw new Exception("Selected MCU does not have enough space for this program");
         }
 
-        UploadUtility.Instance.OpenComPort(com);
-        await UploadUtility.Instance.Update(hexFileData);
-        await ProgressBarUtility.Instance.StopProgressBar();
+        // UploadUtility.Instance.OpenComPort(com);
+        // await UploadUtility.Instance.Update(hexFileData);
+        // await ProgressBarUtility.Instance.StopProgressBar();
         Console.WriteLine($"qbdude done. Thank you.\n");
     }
 

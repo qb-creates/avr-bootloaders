@@ -42,7 +42,7 @@ public static class CommandLineBuilderExtensions
         {
             if (context.ParseResult.Errors.Count > 0)
             {
-                await context.ParseResult.CommandResult.Command.InvokeAsync(new string[] { "upload", "-h" });                
+                await context.ParseResult.CommandResult.Command.InvokeAsync("-h");                
                 context.InvocationResult = new ParseErrorResult(errorExitCode);
 
                 PrintError(context);

@@ -4,68 +4,59 @@ using qbdude.exceptions;
 namespace qbdude.utilities;
 
 /// <summary>
-/// 
+/// Utility that is used to read a .hex file and extract the program data records from it.
 /// </summary>
 public static class HexReaderUtility
 {
+    private static readonly Regex s_dataMatcher = new Regex(@"[A-F0-9]{2}");
     private const string INTEL_EOF_RECORD = ":00000001FF";
-    private const int HEX_DATA_STARTING_INDEX = 9;
-    private static readonly Regex byteMatcher = new Regex(@"[A-F0-9]{2}");
-
+    private const int HEX_RECORD_MINIMUM_LENGTH = 11;
+    private const int PROGRAM_DATA_FIELD_INDEX = 9;
+    private const int EOL_Length = 2;
+    
     /// <summary>
-    /// 
+    /// Will extract the program data from the specified hex file.
     /// </summary>
-    /// <param name="filePath"></param>
-    /// <returns></returns>
-    public static async Task<byte[]> ReadHexFile(string filePath)
+    /// <param name="filePath">The path to the hex file.</param>
+    /// <returns>Returns an array of the extracted program data.</returns>
+    public static byte[] ExtractProgramData(string filePath)
     {
         Console.WriteLine($"Reading input file '{filePath}'\n");
 
-        List<byte> hexFileData = new List<byte>();
-        long totalBytes = new FileInfo(filePath).Length;
-        string? line = string.Empty;
-        bool invalidHexFIle = false;
-
-        try
+        if (!File.Exists(filePath))
         {
-            using (StreamReader streamReader = new StreamReader(filePath))
+            throw new HexFileNotFoundException($"Can't open file {filePath}: No such file or directory.\n", ExitCode.HexFileNotFound, new FileNotFoundException());
+        }
+
+        List<byte> programData = new List<byte>();
+        long totalBytes = new FileInfo(filePath).Length;
+
+        using (ProgressBar progressBar = ProgressBar.Instantiate("Reading       ", totalBytes))
+        {
+            string[] fileRecords = File.ReadAllLines(filePath);
+
+            if (fileRecords.Last() != INTEL_EOF_RECORD || fileRecords.Any(line => line.Length < HEX_RECORD_MINIMUM_LENGTH))
             {
-                await ProgressBarUtility.Instance.StartProgressBar("Reading", totalBytes);
+                throw new InvalidHexFileException("Hex file is not in the correct format. Upload canceled", ExitCode.InvalidHexFile);
+            }
 
-                while ((line = streamReader.ReadLine()) != INTEL_EOF_RECORD)
+            // Extract program data from each record
+            foreach (string record in fileRecords)
+            {
+                string dataString = record.Substring(PROGRAM_DATA_FIELD_INDEX, (record.Length - HEX_RECORD_MINIMUM_LENGTH));
+
+                if (dataString.Length % 2 != 0)
                 {
-                    if ((streamReader.EndOfStream && line != INTEL_EOF_RECORD) || line.Length < INTEL_EOF_RECORD.Length)
-                    {
-                        invalidHexFIle = true;
-                        break;
-                    }
-
-                    string byteCode = line.Substring(HEX_DATA_STARTING_INDEX, (line.Length - 9 - 2));
-                    byte[] result = byteMatcher.Matches(byteCode).Select(match => Convert.ToByte(match.Value, 16)).ToArray();
-
-                    hexFileData.AddRange(result);
-                    ProgressBarUtility.Instance.UpdateProgressBar2(line.Length + 13);
+                    throw new InvalidHexFileException("Hex file is not in the correct format. Upload canceled", ExitCode.InvalidHexFile);
                 }
+
+                byte[] dataArray = s_dataMatcher.Matches(dataString).Select(match => Convert.ToByte(match.Value, 16)).ToArray();
+
+                programData.AddRange(dataArray);
+                progressBar.Update(record.Length + EOL_Length);
             }
         }
-        catch (FileNotFoundException ex)
-        {
-            throw new HexFileNotFoundException($"\nqbdude: can't open file {filePath}: No such file or directory.\n", ExitCode.FileNotFound, ex);
-        }
-        catch (Exception ex)
-        {
-            throw new CommandException($"\n{ex.Message}.\n", ExitCode.FileNotFound, ex);
-        }
-        finally
-        {
-            await ProgressBarUtility.Instance.StopProgressBar();
-        }
 
-        if (invalidHexFIle)
-        {
-            throw new InvalidHexFileException("Hex file is not in the correct format. Upload canceled", ExitCode.FileNotFound);
-        }
-
-        return hexFileData.ToArray();
+        return programData.ToArray();
     }
 }

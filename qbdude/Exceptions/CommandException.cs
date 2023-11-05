@@ -40,5 +40,7 @@ public class CommandException : Exception
 public enum ExitCode
 {
     Success = 0,
-    FileNotFound = 3
+    Error = 1,
+    HexFileNotFound = 2,
+    InvalidHexFile = 3
 }
