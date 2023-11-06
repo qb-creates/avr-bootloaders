@@ -1,4 +1,4 @@
-namespace qbdude.utilities;
+namespace qbdude.ui;
 
 /// <summary>
 /// Will create a progress bar UI element in the console. Nothing should be printed to the to the console
@@ -10,7 +10,7 @@ public sealed class ProgressBar : IDisposable
 {
     private static readonly object s_progressBarLocker = new object();
     private static List<ProgressBar> s_progressBarList = new List<ProgressBar>();
-    private static int s_cursorLastPosition = 0;
+    private static int s_rowPositionOnDispose = 0;
 
     /// <summary>
     /// Instantiates a new instance of a progress bar and displays it in the console.
@@ -30,6 +30,9 @@ public sealed class ProgressBar : IDisposable
         }
     }
 
+    private readonly int _progressBarRowPosition = 0;
+    private readonly int _timeColumnPosition = 0;
+
     private string _operationText = string.Empty;
     private string _emptyProgressContainer = "                                                  ";
     private string _filledProgressContainer = "";
@@ -37,18 +40,16 @@ public sealed class ProgressBar : IDisposable
     private long _itemsCompleted = 0;
     private long _itemsToComplete = 0;
     private long _previousPercentage = 0;
-    private readonly int _cursorTop = 0;
-    private readonly int _cursorLeft = 0;
     private Timer? _progressTimer;
 
     private ProgressBar(string operationText, long itemsToComplete)
     {
         Console.CursorVisible = false;
         Console.Write($@"{operationText} | {_emptyProgressContainer} | 0%");
-
-        s_cursorLastPosition = Console.CursorTop + 2;
-        _cursorTop = Console.CursorTop;
-        _cursorLeft = Console.CursorLeft + 4;
+        
+        s_rowPositionOnDispose = Console.CursorRowPosition + 2;
+        _progressBarRowPosition = Console.CursorRowPosition;
+        _timeColumnPosition = Console.CursorColumnPosition + 4;
         _operationText = operationText;
         _itemsToComplete = itemsToComplete;
         _progressTimer = new Timer(ProgressBarTimer, null, 0, 10);
@@ -71,7 +72,7 @@ public sealed class ProgressBar : IDisposable
 
             if (s_progressBarList.Count == 0)
             {
-                Console.SetCursorPosition(0, s_cursorLastPosition);
+                Console.SetCursorPosition(0, s_rowPositionOnDispose);
                 Console.CursorVisible = true;
             }
         }
@@ -87,7 +88,7 @@ public sealed class ProgressBar : IDisposable
         _itemsCompleted += items;
 
         long percentage = (long)(100 * _itemsCompleted / _itemsToComplete);
-
+        
         if (percentage % 2 != 0 || percentage == _previousPercentage || percentage > 100)
         {
             return;
@@ -101,11 +102,9 @@ public sealed class ProgressBar : IDisposable
 
         lock (s_progressBarLocker)
         {
-            Console.SetCursorPosition(0, _cursorTop);
+            Console.SetCursorPosition(0, _progressBarRowPosition);
             Console.Write($@"{_operationText} | ");
-            Console.BackgroundColor = ConsoleColor.Green;
-            Console.Write($@"{_filledProgressContainer}");
-            Console.BackgroundColor = ConsoleColor.Black;
+            Console.Write($@"{_filledProgressContainer}", backgroundColor: ConsoleColor.Green);
             Console.Write($@"{_emptyProgressContainer} | {percentage}%");
         }
 
@@ -116,8 +115,8 @@ public sealed class ProgressBar : IDisposable
     {
         lock (s_progressBarLocker)
         {
-            Console.SetCursorPosition(_cursorLeft, _cursorTop);
-            Console.Write("{0:N2}s", _elaspedTime);
+            Console.SetCursorPosition(_timeColumnPosition, _progressBarRowPosition);
+            Console.Write($"{_elaspedTime:N2}s");
         }
 
         _elaspedTime += 0.01;

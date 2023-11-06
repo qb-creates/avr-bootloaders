@@ -1,5 +1,7 @@
 using System.Text.RegularExpressions;
 using qbdude.exceptions;
+using qbdude.ui;
+using Console = qbdude.ui.Console;
 
 namespace qbdude.utilities;
 
@@ -22,7 +24,7 @@ public static class HexReaderUtility
     public static byte[] ExtractProgramData(string filePath)
     {
         Console.WriteLine($"Reading input file '{filePath}'\n");
-
+        
         if (!File.Exists(filePath))
         {
             throw new HexFileNotFoundException($"Can't open file {filePath}: No such file or directory.\n", ExitCode.HexFileNotFound, new FileNotFoundException());
@@ -31,7 +33,7 @@ public static class HexReaderUtility
         List<byte> programData = new List<byte>();
         long totalBytes = new FileInfo(filePath).Length;
 
-        using (ProgressBar progressBar = ProgressBar.Instantiate("Reading       ", totalBytes))
+        using (ProgressBar progressBar = ProgressBar.Instantiate("Reading", totalBytes))
         {
             string[] fileRecords = File.ReadAllLines(filePath);
 

@@ -5,6 +5,7 @@ using System.CommandLine.Invocation;
 using System.Reflection;
 using qbdude.invocation.results;
 using Spectre.Console;
+using Console = qbdude.ui.Console;
 
 namespace qbdude.extensions;
 
@@ -86,14 +87,10 @@ public static class CommandLineBuilderExtensions
     }
 
     private static void PrintError(InvocationContext context)
-    {
-        Console.ForegroundColor = ConsoleColor.Red;
-
+    {        
         foreach (var error in context.ParseResult.Errors)
         {
-            Console.WriteLine(error);
+            Console.WriteLine(error.ToString(), textColor: ConsoleColor.Red);
         }
-
-        Console.ForegroundColor = ConsoleColor.White;
     }
 }

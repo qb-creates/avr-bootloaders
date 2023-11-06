@@ -6,6 +6,7 @@ using qbdude.exceptions;
 using qbdude.extensions;
 using qbdude.Models;
 using qbdude.utilities;
+using Console = qbdude.ui.Console;
 
 namespace qbdude;
 
@@ -81,16 +82,8 @@ class Program
         var textColor = success ? ConsoleColor.Green : ConsoleColor.Red;
         var successText = success ? "SUCCESS" : "FAILURE";
 
-        // Make sure the text color is white
-        Console.ForegroundColor = ConsoleColor.White;
         Console.Write($"\r\n==============================[");
-
-        // Update the text color of the success string
-        Console.ForegroundColor = textColor;
-        Console.Write($"{successText}");
-
-        // Make sure the text color is white
-        Console.ForegroundColor = ConsoleColor.White;
+        Console.Write($"{successText}", textColor: textColor);
         Console.WriteLine($"]====================================");
     }
 }
