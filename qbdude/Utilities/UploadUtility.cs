@@ -1,70 +1,47 @@
+using System.Diagnostics;
 using System.IO.Ports;
+using qbdude.exceptions;
+using qbdude.invocation.results;
+using qbdude.ui;
+using Console = qbdude.ui.Console;
 
 namespace qbdude.utilities;
 
 /// <summary>
-/// 
+/// Utility that is used to upload program data to a microcontroller.
 /// </summary>
-public sealed class UploadUtility
+public static class UploadUtility
 {
-    private readonly byte[] endingSequence = new byte[10] { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
-    private readonly byte[] endingSequence2 = new byte[10] { 0xFE, 0xFE, 0xFE, 0xFE, 0xFE, 0xFE, 0xFE, 0xFE, 0xFE, 0xFE };
-    private SerialPort serialPort = new SerialPort();
-    private string receivedData = string.Empty;
-    private double totalBytes = 0;
-    private double bytesTransmitted = 0;
-    private Queue<byte[]> pageDataQueue = new Queue<byte[]>();
-    private bool updating = false;
+    private const string READY_TO_UPDATE_AKNOWLEDGEMENT = "CTU";
+    private const string COMPLETE_AKNOWLEDGEMENT = "Complete";
+    private const string PAGE_AKNOWLEDGEMENT = "Page";
+    private const char BYTE_AKNOWLEDGEMENT = '\r';
 
-    private static UploadUtility? instance;
-
-    public static UploadUtility Instance
-    {
-        get
-        {
-            if (instance == null)
-            {
-                instance = new UploadUtility();
-            }
-
-            return instance;
-        }
-    }
-
-    private UploadUtility() { }
-
+    private static long _totalBytes = 0;
+    private static Queue<byte[]> _pageDataQueue = new Queue<byte[]>();
+    
     /// <summary>
-    /// Opens the Com port for data communication.
+    /// Will upload the program data to the microcontroller
     /// </summary>
-    /// <param name="comPort">The COM port that we want to open</param>
-    public void OpenComPort(string comPort)
+    /// <param name="comPort"></param>
+    /// <param name="hexData"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    public static async Task UploadProgramData(string comPort, byte[] hexData, CancellationToken cancellationToken)
     {
-        Console.WriteLine($"qbdude: Opening {comPort}");
-        
-        serialPort.DataReceived += SerialPort_DataReceived;
-        serialPort.PortName = comPort;
-        serialPort.BaudRate = 115200;
-        serialPort.Parity = Parity.None;
-        serialPort.DataBits = 8;
-        serialPort.StopBits = StopBits.One;
-
-        try
+        using (SerialPort serialPort = new SerialPort(comPort, 115200, Parity.None, 8, StopBits.One))
         {
-            serialPort.Open();
-        }
-        catch (ArgumentException)
-        {
-            Console.WriteLine("qbdude: The given port name does not start with COM/com or does not resolve to a valid serial port.");
-            Console.WriteLine($"qbdude done. Thank You.\n");
-            Environment.Exit(0);
+            BuildPageDataQueue(hexData);
+            OpenComPort(serialPort, cancellationToken);
+            Console.WriteLine($"{serialPort.PortName} open: Writing flash ({hexData.Length} bytes)\r\n");
+            await TransmitData(serialPort, cancellationToken);
         }
     }
 
-    public async Task Update(byte[] hexFileData)
+    private static void BuildPageDataQueue(byte[] hexFileData)
     {
         List<byte> tempByteList = new List<byte>();
         int pageCount = 0;
-        double totalFlashBytes = hexFileData.Length;
 
         for (int i = 0; i < hexFileData.Length; i++)
         {
@@ -79,11 +56,6 @@ public sealed class UploadUtility
 
             if ((i - 255) % 256 == 0 || i == hexFileData.Length - 1)
             {
-
-                // tempByteList.AddRange((i == hexFileData.Length - 1) ? endingSequence2 : endingSequence);
-
-                // tempByteList.Insert(0, Convert.ToByte((tempByteList.Count) & 0xFF));
-                // tempByteList.Insert(0, Convert.ToByte((tempByteList.Count) >> 8));
                 if (tempByteList.Count != 258)
                 {
                     byte[] temp = new byte[258 - tempByteList.Count];
@@ -95,103 +67,83 @@ public sealed class UploadUtility
                 {
                     tempByteList.Add(0xFF);
                 }
-                // if (i == hexFileData.Length - 1)
-                // {
-                //     tempByteList.AddRange(endingSequence2);
-                // }
-                // else
-                // {
-                //     tempByteList.AddRange(endingSequence);
-                // }
 
-                pageDataQueue.Enqueue(tempByteList.ToArray());
-                totalBytes += tempByteList.ToArray().Length;
+                _pageDataQueue.Enqueue(tempByteList.ToArray());
+                _totalBytes += tempByteList.ToArray().Length;
                 tempByteList.Clear();
             }
         }
+    }
 
+    private static void OpenComPort(SerialPort serialPort, CancellationToken cancellationToken)
+    {
+        int openAttempts = 3;
+        while (!serialPort.IsOpen)
+        {
+            Console.Write($"Opening {serialPort.PortName}: {openAttempts} attempts remaining.\r");
+
+            try
+            {
+                serialPort.Open();
+            }
+            catch
+            {
+                --openAttempts;
+            }
+
+            if (openAttempts == 0)
+            {
+                throw new ComPortTimeoutException($"Failed to open {serialPort.PortName}.", new UploadErrorResult(ExitCode.FailedToOpenCom));
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+    }
+
+    private static async Task TransmitData(SerialPort serialPort, CancellationToken cancellationToken)
+    {
+        byte[] data = new byte[0];
+        string receivedData = string.Empty;
         serialPort.Write("RTU\r");
-        Console.WriteLine($"qbdude: Writing flash ({hexFileData.Length} bytes):\n");
-        updating = true;
 
-        while (updating)
+        Stopwatch stopwatch = new Stopwatch();
+        stopwatch.Start();
+        
+        using (ProgressBar progressBar = new ProgressBar("Writing", _totalBytes))
         {
-            await Task.Delay(10);
-        }
-    }
+            await progressBar.Start();
 
-    // public void StartUpdate(byte[] hexFileData)
-    // {
-    //     List<byte> tempByteList = new List<byte>();
-    //     int pageCount = 0;
-    //     double totalFlashBytes = hexFileData.Length;
+            while (!receivedData.Contains(COMPLETE_AKNOWLEDGEMENT))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                receivedData += serialPort.ReadExisting();
 
-    //     for (int i = 0; i < hexFileData.Length; i++)
-    //     {
-    //         if (i % 256 == 0)
-    //         {
-    //             tempByteList.Add((byte)((pageCount >> 8) & 0xFF));
-    //             tempByteList.Add((byte)(pageCount & 0xFF));
-    //             pageCount++;
-    //         }
+                if (receivedData.Contains(BYTE_AKNOWLEDGEMENT))
+                {
+                    var byteAckLength = receivedData.Count(f => f == BYTE_AKNOWLEDGEMENT);
 
-    //         tempByteList.Add(hexFileData[i]);
+                    progressBar.Update(byteAckLength);
+                    receivedData = receivedData.Replace(BYTE_AKNOWLEDGEMENT, '\x00');
+                    stopwatch.Restart();
+                }
 
-    //         if ((i - 255) % 256 == 0 || i == hexFileData.Length - 1)
-    //         {
-    //             pageDataQueue.Enqueue(tempByteList.ToArray());
-    //             totalBytes += tempByteList.ToArray().Length;
-    //             tempByteList.Clear();
-    //         }
-    //     }
+                if (receivedData.Contains(READY_TO_UPDATE_AKNOWLEDGEMENT) || receivedData.Contains(PAGE_AKNOWLEDGEMENT))
+                {
+                    if (_pageDataQueue.Count > 0)
+                    {
+                        data = _pageDataQueue.Dequeue();
+                        serialPort.Write(data, 0, data.Length);
+                    }
 
-    //     serialPort.Write("RTU\r");
-    //     Console.WriteLine($"qbdude: Writing flash ({hexFileData.Length} bytes):\n");
-    // }
+                    receivedData = string.Empty;
+                    stopwatch.Restart();
+                }
 
-    private void SerialPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
-    {
-        SerialPort serialPort = (SerialPort)sender;
-        receivedData += serialPort.ReadExisting();
-
-        if (receivedData.Contains("CTU"))
-        {
-            receivedData = string.Empty;
-
-            ProgressBarUtility.Instance.StartProgressBar("Writing");
-
-            Thread t = new Thread(new ThreadStart(TransmitDataToMCU));
-            t.Start();
-        }
-        else if (receivedData.Contains('\r'))
-        {
-            bytesTransmitted += receivedData.Length; ;
-            receivedData = string.Empty;
-
-            int percentage = (int)((bytesTransmitted / totalBytes) * 100);
-            ProgressBarUtility.Instance.UpdateProgressBar(percentage);
-        }
-        else if (receivedData.Contains("Page"))
-        {
-            receivedData = string.Empty;
-
-            Thread t = new Thread(new ThreadStart(TransmitDataToMCU));
-            t.Start();
-        }
-        else if (receivedData.Contains("Complete"))
-        {
-            receivedData = string.Empty;
-
-            updating = false;
-        }
-    }
-
-    private void TransmitDataToMCU()
-    {
-        if (pageDataQueue.Count > 0)
-        {
-            byte[] data = pageDataQueue.Dequeue();
-            serialPort.Write(data, 0, data.Length);
+                if (stopwatch.Elapsed.Seconds > 5)
+                {
+                    throw new CommunicationFailedException(new UploadErrorResult(ExitCode.CommunicationError));
+                }
+            }
         }
     }
 }

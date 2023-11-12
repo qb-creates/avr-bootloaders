@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace qbdude.ui;
 
 /// <summary>
@@ -5,26 +7,61 @@ namespace qbdude.ui;
 /// the text color and background color can be set.
 /// </summary>
 public static class Console
-{    
-    /// <summary>
-    /// Gets or sets a value indicating whether the cursor is visible.
-    /// </summary>
-    /// <returns> Returns true if the cursor is visible; otherwise, false.</returns>
-    public static bool CursorVisible
-    {
-        get
-        {
-            if (OperatingSystem.IsWindows())
-            {
-                return System.Console.CursorVisible;
-            }
+{
+    private const int MF_BYCOMMAND = 0x00000000;
+    private const int SC_MAXIMIZE = 0xF030;
+    private const int SC_SIZE = 0xF000;
 
-            return false;
-        }
-        set
+    [DllImport("kernel32.dll", ExactSpelling = true)]
+    private static extern IntPtr GetConsoleWindow();
+
+    [DllImport("user32.dll")]
+    public static extern int DeleteMenu(IntPtr hMenu, int nPosition, int wFlags);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetSystemMenu(IntPtr hWnd, bool bRevert);
+
+    /// <summary>
+    /// Resize the console window to where all content printed to the console can be scene.
+    /// </summary>
+    public static void ResizeConsoleWindow()
+    {
+        System.Console.CursorVisible = false;
+
+        if (OperatingSystem.IsWindows())
         {
-            System.Console.CursorVisible = value;
+            if (System.Console.WindowWidth < 80)
+            {
+                System.Console.BufferWidth = 80;
+                System.Console.WindowWidth = 80;
+            }
         }
+    }
+
+    /// <summary>
+    /// Will enable/disable the resize and feature of the console window.
+    /// </summary>
+    /// <param name="bRevert">True to enable window resize and maximize. False to disable window resize and maximize.</param>
+    public static void DisableResizeMenuOptions()
+    {
+        IntPtr handle = GetConsoleWindow();
+        IntPtr sysMenu = GetSystemMenu(handle, false);
+
+        if (handle != IntPtr.Zero)
+        {
+            DeleteMenu(sysMenu, SC_MAXIMIZE, MF_BYCOMMAND);
+            DeleteMenu(sysMenu, SC_SIZE, MF_BYCOMMAND);//resize
+        }
+    }
+
+    /// <summary>
+    /// Resets the menu for the console back to it's default state
+    /// </summary>
+    public static void ResetConsoleMenu()
+    {
+        IntPtr handle = GetConsoleWindow();
+        GetSystemMenu(handle, true);
+        System.Console.CursorVisible = true;
     }
 
     /// <summary>

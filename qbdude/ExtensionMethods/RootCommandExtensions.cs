@@ -1,4 +1,6 @@
 using System.CommandLine;
+using qbdude.exceptions;
+using qbdude.invocation.results;
 using static qbdude.validators.OptionValidator;
 
 namespace qbdude.extensions;
@@ -46,7 +48,7 @@ public static class RootCommandExtensions
     /// <param name="rootCommand">Reference to the root command</param>
     /// <param name="uploadFunc">Action to invoke when the upload command is passed in.</param>
     /// <returns>The same instance RootCommand.</returns>
-    public static RootCommand AddUploadCommand(this RootCommand rootCommand, Func<string, string, string, bool, Task> uploadFunc)
+    public static RootCommand AddUploadCommand(this RootCommand rootCommand, Func<string, string, string, bool, CancellationToken, Task<ExitCode>> uploadFunc)
     {
         var forceUploadOption = new Option<bool>("-f", "Will force upload for invalid signatures.");
 
@@ -75,10 +77,21 @@ public static class RootCommandExtensions
             forceUploadOption
         };
 
-        uploadCommand.SetHandler(async (partNumber, com, filepath, force) =>
+        uploadCommand.SetHandler(async (context) =>
         {
-            await uploadFunc(partNumber, com, filepath, force);
-        }, partNumberOption, comportOption, filePathOption, forceUploadOption);
+            var partNumber = context.ParseResult.GetValueForOption(partNumberOption);
+            var com = context.ParseResult.GetValueForOption(comportOption);
+            var filepath = context.ParseResult.GetValueForOption(filePathOption);
+            var force = context.ParseResult.GetValueForOption(forceUploadOption);
+            var token = context.GetCancellationToken();
+
+            var exitCode = await uploadFunc(partNumber!, com!, filepath!, force, token);
+
+            if (exitCode == ExitCode.UploadCanceled)
+            {
+                context.InvocationResult = new CancellationResult(exitCode);
+            }
+        });
 
         rootCommand.AddCommand(uploadCommand);
 

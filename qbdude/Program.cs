@@ -4,6 +4,7 @@ using System.CommandLine.Parsing;
 using System.IO.Ports;
 using qbdude.exceptions;
 using qbdude.extensions;
+using qbdude.invocation.results;
 using qbdude.Models;
 using qbdude.utilities;
 using Console = qbdude.ui.Console;
@@ -14,6 +15,9 @@ class Program
 {
     static async Task<int> Main(string[] args)
     {
+        Console.ResizeConsoleWindow();
+        Console.DisableResizeMenuOptions();
+
         var rootCommand = new RootCommand("Uploader for qb.creates' bootloaders");
         rootCommand.AddUploadCommand(StartUpload)
                    .AddComPortsCommand(PrintComPorts)
@@ -21,45 +25,54 @@ class Program
 
         var parser = new CommandLineBuilder(rootCommand)
                     .ConfigureHelp("-h")
-                    .AddParseErrorReport(1)
+                    .AddParseErrorReport(ExitCode.ParseError)
                     .PrintHeaderForCommands()
                     .CancelOnProcessTermination()
                     .UseExceptionHandler((e, ctx) =>
                     {
                         var ex = (e as CommandException);
 
-                        ctx.ExitCode = ex != null ? (int)ex.ExitCode : 1;
-                        Console.WriteLine(e?.Message);
+                        ctx.InvocationResult = ex != null ? ex.InvocationResult : new ErrorResult();
+                        Console.WriteLine(e?.Message!);
                     })
                     .Build();
 
         var exitCode = await parser.InvokeAsync(args);
 
         PrintSuccessBar(exitCode == 0);
+        Console.ResetConsoleMenu();
 
         return exitCode;
     }
 
-    private static async Task StartUpload(string partNumber, string com, string filepath, bool force)
+    private static async Task<ExitCode> StartUpload(string partNumber, string com, string filepath, bool force, CancellationToken token)
     {
-        var selectedMCU = Microcontroller.DeviceDictionary[partNumber];
-        var programData = HexReaderUtility.ExtractProgramData(filepath);
-
-        if (programData.Length > selectedMCU.FlashSize)
+        try
         {
-            throw new Exception("Selected MCU does not have enough space for this program");
+            var selectedMCU = Microcontroller.DeviceDictionary[partNumber];
+            var programData = await HexReaderUtility.ExtractProgramData(filepath, token);
+
+            if (programData.Length > selectedMCU.FlashSize)
+            {
+                throw new Exception("Selected MCU does not have enough space for this program");
+            }
+
+            await UploadUtility.UploadProgramData(com, programData, token);
+            Console.WriteLine($"qbdude done. Thank you.");
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("Exiting");
+            return ExitCode.UploadCanceled;
         }
 
-        // UploadUtility.Instance.OpenComPort(com);
-        // await UploadUtility.Instance.Update(hexFileData);
-        // await ProgressBarUtility.Instance.StopProgressBar();
-        Console.WriteLine($"qbdude done. Thank you.\n");
+        return ExitCode.Success;
     }
 
     private static void PrintComPorts()
     {
-        Console.WriteLine("\nAvailable Com Ports:");
-        
+        Console.WriteLine("\r\nAvailable Com Ports:");
+
         foreach (string serialPort in SerialPort.GetPortNames())
         {
             Console.WriteLine(serialPort);
@@ -68,7 +81,7 @@ class Program
 
     private static void PrintSupportedPartNumbers()
     {
-        Console.WriteLine($"\n{"Name",-15}{"Part Number",-15}{"Flash Size",-20}{"Signature",-10}");
+        Console.WriteLine($"\r\n{"Name",-15}{"Part Number",-15}{"Flash Size",-20}{"Signature",-10}");
 
         foreach (KeyValuePair<string, Microcontroller> kvp in Microcontroller.DeviceDictionary)
         {
@@ -84,6 +97,6 @@ class Program
 
         Console.Write($"\r\n==============================[");
         Console.Write($"{successText}", textColor: textColor);
-        Console.WriteLine($"]====================================");
+        Console.WriteLine($"]====================================\r\n");
     }
 }

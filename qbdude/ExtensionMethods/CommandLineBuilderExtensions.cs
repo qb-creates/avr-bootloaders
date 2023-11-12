@@ -3,6 +3,7 @@ using System.CommandLine.Builder;
 using System.CommandLine.Help;
 using System.CommandLine.Invocation;
 using System.Reflection;
+using qbdude.exceptions;
 using qbdude.invocation.results;
 using Spectre.Console;
 using Console = qbdude.ui.Console;
@@ -37,7 +38,7 @@ public static class CommandLineBuilderExtensions
     /// <param name="commandLineBuilder">A command line builder.</param>
     /// <param name="errorExitCode">The exit code to use when parser errors occur.</param>
     /// <returns>The same instance of CommandLineBuilder.</returns>
-    public static CommandLineBuilder AddParseErrorReport(this CommandLineBuilder commandLineBuilder, int errorExitCode)
+    public static CommandLineBuilder AddParseErrorReport(this CommandLineBuilder commandLineBuilder, ExitCode errorExitCode)
     {
         commandLineBuilder.AddMiddleware(async delegate (InvocationContext context, Func<InvocationContext, Task> next)
         {

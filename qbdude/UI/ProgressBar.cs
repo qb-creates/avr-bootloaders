@@ -8,51 +8,30 @@ namespace qbdude.ui;
 /// </summary>
 public sealed class ProgressBar : IDisposable
 {
-    private static readonly object s_progressBarLocker = new object();
-    private static List<ProgressBar> s_progressBarList = new List<ProgressBar>();
-    private static int s_rowPositionOnDispose = 0;
-
-    /// <summary>
-    /// Instantiates a new instance of a progress bar and displays it in the console.
-    /// The timer will be started and progress can be updated by calling ProgressBar.Update.
-    /// </summary>
-    /// <param name="operationText">The operation that is being performed.</param>
-    /// <param name="itemsToComplete">The total number of items that need to be completed.</param>
-    /// <returns>Returns a new instance of a progress bar.</returns>
-    public static ProgressBar Instantiate(string operationText, long itemsToComplete)
-    {
-        lock (s_progressBarLocker)
-        {
-            ProgressBar progressBar = new ProgressBar(operationText, itemsToComplete);
-            s_progressBarList.Add(progressBar);
-
-            return progressBar;
-        }
-    }
-
-    private readonly int _progressBarRowPosition = 0;
-    private readonly int _timeColumnPosition = 0;
+    private readonly object _progressBarLocker = new object();
 
     private string _operationText = string.Empty;
     private string _emptyProgressContainer = "                                                  ";
     private string _filledProgressContainer = "";
+    private int _timeColumnPosition = 0;
     private double _elaspedTime = 0;
     private long _itemsCompleted = 0;
     private long _itemsToComplete = 0;
     private long _previousPercentage = 0;
     private Timer? _progressTimer;
+    private bool _isActive = false;
+    private bool _disposed = false;
 
-    private ProgressBar(string operationText, long itemsToComplete)
+    /// <summary>
+    /// Initializes  a new instance of a ProgressBar class and displays it in the console.
+    /// The timer will be started and progress can be updated by calling ProgressBar.Update. 
+    /// </summary>
+    /// <param name="operationText">The operation that is being performed.</param>
+    /// <param name="itemsToComplete">The total number of items that need to be completed.</param>
+    public ProgressBar(string operationText, long itemsToComplete)
     {
-        Console.CursorVisible = false;
-        Console.Write($@"{operationText} | {_emptyProgressContainer} | 0%");
-        
-        s_rowPositionOnDispose = Console.CursorRowPosition + 2;
-        _progressBarRowPosition = Console.CursorRowPosition;
-        _timeColumnPosition = Console.CursorColumnPosition + 4;
         _operationText = operationText;
         _itemsToComplete = itemsToComplete;
-        _progressTimer = new Timer(ProgressBarTimer, null, 0, 10);
     }
 
     /// <summary>
@@ -60,22 +39,26 @@ public sealed class ProgressBar : IDisposable
     /// </summary>
     public void Dispose()
     {
-        if (_progressTimer == null)
-        {
+        _disposed = true;
+        _isActive = false;
+        _progressTimer?.Dispose();
+
+        Console.Write("\r\n\r\n");
+    }
+
+    public async Task Start()
+    {
+        if (_isActive || _disposed)
             return;
-        }
 
-        lock (s_progressBarLocker)
-        {
-            _progressTimer.Dispose();
-            s_progressBarList.Remove(this);
+        Console.Write($"{_operationText} | ");
+        Console.Write($"{_emptyProgressContainer}", backgroundColor: ConsoleColor.Gray);
+        Console.Write($" | 0%");
+        _timeColumnPosition = Console.CursorColumnPosition + 4;
 
-            if (s_progressBarList.Count == 0)
-            {
-                Console.SetCursorPosition(0, s_rowPositionOnDispose);
-                Console.CursorVisible = true;
-            }
-        }
+        await Task.Delay(1000);
+        _progressTimer = new Timer(ProgressBarTimer, null, 0, 10);
+        _isActive = true;
     }
 
     /// <summary>
@@ -85,14 +68,15 @@ public sealed class ProgressBar : IDisposable
     /// <param name="items">The number of new that were completed since the last Update call.</param>
     public void Update(long items)
     {
+        if (!_isActive || _disposed)
+            return;
+
         _itemsCompleted += items;
 
         long percentage = (long)(100 * _itemsCompleted / _itemsToComplete);
-        
+
         if (percentage % 2 != 0 || percentage == _previousPercentage || percentage > 100)
-        {
             return;
-        }
 
         for (long i = _previousPercentage; i < percentage; i += 2)
         {
@@ -100,12 +84,13 @@ public sealed class ProgressBar : IDisposable
             _filledProgressContainer = _filledProgressContainer.Insert(0, " ");
         }
 
-        lock (s_progressBarLocker)
+        lock (_progressBarLocker)
         {
-            Console.SetCursorPosition(0, _progressBarRowPosition);
+            Console.CursorColumnPosition = 0;
             Console.Write($@"{_operationText} | ");
             Console.Write($@"{_filledProgressContainer}", backgroundColor: ConsoleColor.Green);
-            Console.Write($@"{_emptyProgressContainer} | {percentage}%");
+            Console.Write($@"{_emptyProgressContainer}", backgroundColor: ConsoleColor.Gray);
+            Console.Write($@" | {percentage}%");
         }
 
         _previousPercentage = percentage;
@@ -113,10 +98,13 @@ public sealed class ProgressBar : IDisposable
 
     private void ProgressBarTimer(object? state)
     {
-        lock (s_progressBarLocker)
+        lock (_progressBarLocker)
         {
-            Console.SetCursorPosition(_timeColumnPosition, _progressBarRowPosition);
-            Console.Write($"{_elaspedTime:N2}s");
+            if (!_disposed)
+            {
+                Console.CursorColumnPosition = _timeColumnPosition;
+                Console.Write($"{_elaspedTime:N2}s");
+            }
         }
 
         _elaspedTime += 0.01;

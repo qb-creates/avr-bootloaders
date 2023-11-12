@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using qbdude.exceptions;
+using qbdude.invocation.results;
 using qbdude.ui;
 using Console = qbdude.ui.Console;
 
@@ -21,35 +22,38 @@ public static class HexReaderUtility
     /// </summary>
     /// <param name="filePath">The path to the hex file.</param>
     /// <returns>Returns an array of the extracted program data.</returns>
-    public static byte[] ExtractProgramData(string filePath)
+    public static async Task<byte[]> ExtractProgramData(string filePath, CancellationToken cancellationToken)
     {
-        Console.WriteLine($"Reading input file '{filePath}'\n");
+        Console.WriteLine($"Reading input file '{filePath}'\r\n");
         
         if (!File.Exists(filePath))
         {
-            throw new HexFileNotFoundException($"Can't open file {filePath}: No such file or directory.\n", ExitCode.HexFileNotFound, new FileNotFoundException());
+            throw new HexFileNotFoundException($"Can't open file {filePath}: No such file or directory.\r\n", new ParseErrorResult(ExitCode.HexFileNotFound), new FileNotFoundException());
         }
 
         List<byte> programData = new List<byte>();
         long totalBytes = new FileInfo(filePath).Length;
 
-        using (ProgressBar progressBar = ProgressBar.Instantiate("Reading", totalBytes))
+        using (ProgressBar progressBar = new ProgressBar("Reading", totalBytes))
         {
+            await progressBar.Start();
             string[] fileRecords = File.ReadAllLines(filePath);
-
+            
             if (fileRecords.Last() != INTEL_EOF_RECORD || fileRecords.Any(line => line.Length < HEX_RECORD_MINIMUM_LENGTH))
             {
-                throw new InvalidHexFileException("Hex file is not in the correct format. Upload canceled", ExitCode.InvalidHexFile);
+                throw new InvalidHexFileException(new HexFileErrorResult(ExitCode.InvalidHexFile));
             }
 
             // Extract program data from each record
             foreach (string record in fileRecords)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 string dataString = record.Substring(PROGRAM_DATA_FIELD_INDEX, (record.Length - HEX_RECORD_MINIMUM_LENGTH));
 
+                // Throw exception if the data substring is an odd number
                 if (dataString.Length % 2 != 0)
                 {
-                    throw new InvalidHexFileException("Hex file is not in the correct format. Upload canceled", ExitCode.InvalidHexFile);
+                    throw new InvalidHexFileException(new HexFileErrorResult(ExitCode.InvalidHexFile));
                 }
 
                 byte[] dataArray = s_dataMatcher.Matches(dataString).Select(match => Convert.ToByte(match.Value, 16)).ToArray();
