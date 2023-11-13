@@ -84,6 +84,8 @@ public static class CommandLineBuilderExtensions
     {
         var fontPath = Path.GetDirectoryName(Assembly.GetEntryAssembly()!.Location); 
         var font = FigletFont.Load($"{fontPath}\\Assets\\small.flf");
+
+        Console.WriteLine("");
         AnsiConsole.Write(new FigletText(font, "QB.DUDE").Color(Color.Green1));
     }
 

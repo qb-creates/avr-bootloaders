@@ -52,12 +52,12 @@ class Program
             var selectedMCU = Microcontroller.DeviceDictionary[partNumber];
             var programData = await HexReaderUtility.ExtractProgramData(filepath, token);
 
-            if (programData.Length > selectedMCU.FlashSize)
+            if (programData.Count > selectedMCU.FlashSize)
             {
                 throw new Exception("Selected MCU does not have enough space for this program");
             }
 
-            await UploadUtility.UploadProgramData(com, programData, token);
+            await UploadUtility.UploadProgramData(com, programData, selectedMCU, token);
             Console.WriteLine($"qbdude done. Thank you.");
         }
         catch (OperationCanceledException)

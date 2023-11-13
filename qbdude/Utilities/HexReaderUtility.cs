@@ -22,7 +22,7 @@ public static class HexReaderUtility
     /// </summary>
     /// <param name="filePath">The path to the hex file.</param>
     /// <returns>Returns an array of the extracted program data.</returns>
-    public static async Task<byte[]> ExtractProgramData(string filePath, CancellationToken cancellationToken)
+    public static async Task<List<byte>> ExtractProgramData(string filePath, CancellationToken cancellationToken)
     {
         Console.WriteLine($"Reading input file '{filePath}'\r\n");
         
@@ -63,6 +63,6 @@ public static class HexReaderUtility
             }
         }
 
-        return programData.ToArray();
+        return programData;
     }
 }

@@ -30,10 +30,10 @@ public static class Console
 
         if (OperatingSystem.IsWindows())
         {
-            if (System.Console.WindowWidth < 80)
+            if (System.Console.WindowWidth < 110)
             {
-                System.Console.BufferWidth = 80;
-                System.Console.WindowWidth = 80;
+                System.Console.BufferWidth = 110;
+                System.Console.WindowWidth = 110;
             }
         }
     }

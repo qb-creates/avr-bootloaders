@@ -7,7 +7,7 @@ namespace qbdude.exceptions;
 /// </summary>
 public class CommunicationFailedException : CommandException
 {
-    private const string DEFAULT_MESSAGE = "Lost communication with th emicrocontroller.";
+    private const string DEFAULT_MESSAGE = "Lost communication with the microcontroller.";
 
     /// <summary>
     /// Initializes a new instance of the CommunicationFailedException class with a specified error

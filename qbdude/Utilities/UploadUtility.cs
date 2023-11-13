@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO.Ports;
 using qbdude.exceptions;
 using qbdude.invocation.results;
+using qbdude.Models;
 using qbdude.ui;
 using Console = qbdude.ui.Console;
 
@@ -16,62 +17,59 @@ public static class UploadUtility
     private const string COMPLETE_AKNOWLEDGEMENT = "Complete";
     private const string PAGE_AKNOWLEDGEMENT = "Page";
     private const char BYTE_AKNOWLEDGEMENT = '\r';
+    private const byte END_OF_PAGE_BTYE = 0xFF;
+    private const byte LAST_PAGE_BYTE = 0xFE;
 
-    private static long _totalBytes = 0;
-    private static Queue<byte[]> _pageDataQueue = new Queue<byte[]>();
-    
+    private static Queue<List<byte>> _pageDataQueue = new Queue<List<byte>>();
+
     /// <summary>
     /// Will upload the program data to the microcontroller
     /// </summary>
     /// <param name="comPort"></param>
-    /// <param name="hexData"></param>
+    /// <param name="programData"></param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    public static async Task UploadProgramData(string comPort, byte[] hexData, CancellationToken cancellationToken)
+    public static async Task UploadProgramData(string comPort, List<byte> programData, Microcontroller mcu, CancellationToken cancellationToken)
     {
         using (SerialPort serialPort = new SerialPort(comPort, 115200, Parity.None, 8, StopBits.One))
         {
-            BuildPageDataQueue(hexData);
+            BuildPageDataQueue(mcu, programData);
             OpenComPort(serialPort, cancellationToken);
-            Console.WriteLine($"{serialPort.PortName} open: Writing flash ({hexData.Length} bytes)\r\n");
-            await TransmitData(serialPort, cancellationToken);
+            Console.WriteLine($"{serialPort.PortName} open: Writing flash ({programData.Count} bytes)\r\n");
+            await TransmitData(serialPort, mcu, cancellationToken);
         }
     }
 
-    private static void BuildPageDataQueue(byte[] hexFileData)
+    private static void BuildPageDataQueue(Microcontroller mcu, List<byte> programData)
     {
-        List<byte> tempByteList = new List<byte>();
         int pageCount = 0;
 
-        for (int i = 0; i < hexFileData.Length; i++)
+        while (programData.Count != 0)
         {
-            if (i % 256 == 0)
+            int lastPageLength = Math.Min(programData.Count, mcu.PageSize);
+
+            // Retrieve
+            List<byte> tempByteList = programData.GetRange(0, lastPageLength);
+
+            // Remove tha
+            programData.RemoveRange(0, lastPageLength);
+
+            // Fill the byte list with 0xFF until it is equal to the mcuPageSize
+            while (tempByteList.Count < mcu.PageSize)
             {
-                tempByteList.Add((byte)((pageCount >> 8) & 0xFF));
-                tempByteList.Add((byte)(pageCount & 0xFF));
-                pageCount++;
+                tempByteList.Add(0xFF);
             }
 
-            tempByteList.Add(hexFileData[i]);
+            // Prepend the page number to the page data. Page is a 16 bit int so we have to separate it into two bytes.
+            tempByteList.Insert(0, (byte)pageCount);
+            tempByteList.Insert(0, (byte)(pageCount >> 8));
 
-            if ((i - 255) % 256 == 0 || i == hexFileData.Length - 1)
-            {
-                if (tempByteList.Count != 258)
-                {
-                    byte[] temp = new byte[258 - tempByteList.Count];
-                    Array.Fill<byte>(temp, 0xFF);
-                    tempByteList.AddRange(temp);
-                    tempByteList.Add(0xFE);
-                }
-                else
-                {
-                    tempByteList.Add(0xFF);
-                }
-
-                _pageDataQueue.Enqueue(tempByteList.ToArray());
-                _totalBytes += tempByteList.ToArray().Length;
-                tempByteList.Clear();
-            }
+            // Add the ending byte for this page to the list. This byte will inform the mcu that there is more
+            byte endingByte = lastPageLength < mcu.PageSize ? LAST_PAGE_BYTE : END_OF_PAGE_BTYE;
+            tempByteList.Add(endingByte);
+            
+            _pageDataQueue.Enqueue(tempByteList);
+            pageCount++;
         }
     }
 
@@ -100,15 +98,16 @@ public static class UploadUtility
         }
     }
 
-    private static async Task TransmitData(SerialPort serialPort, CancellationToken cancellationToken)
+    private static async Task TransmitData(SerialPort serialPort, Microcontroller mcu, CancellationToken cancellationToken)
     {
         byte[] data = new byte[0];
         string receivedData = string.Empty;
+        int _totalBytes = _pageDataQueue.Count * mcu.PageSize + 3;
         serialPort.Write("RTU\r");
 
         Stopwatch stopwatch = new Stopwatch();
         stopwatch.Start();
-        
+
         using (ProgressBar progressBar = new ProgressBar("Writing", _totalBytes))
         {
             await progressBar.Start();
@@ -131,7 +130,7 @@ public static class UploadUtility
                 {
                     if (_pageDataQueue.Count > 0)
                     {
-                        data = _pageDataQueue.Dequeue();
+                        data = _pageDataQueue.Dequeue().ToArray();
                         serialPort.Write(data, 0, data.Length);
                     }
 
