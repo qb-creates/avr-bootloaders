@@ -1,10 +1,6 @@
-#include "Bootloader.h"
 #include <avr/boot.h>
-#include <avr/interrupt.h>
-#include <avr/pgmspace.h>
 #include <stdbool.h>
-
-
+#include "Bootloader.h"
 /**
  * @brief Configure 16-bit Timer1. It is set to Compare Output Mode.
  * Output OC1A is toggled on compare match every 100ms (Focn = 5Hz). PB5 can be
@@ -20,13 +16,14 @@ void startBootloaderIndicator()
 }
 
 /**
- * @brief Stops the bootloader indicator output.
+ * @brief Stops the bootloader indicator output. Resets all Timer 1 registers back to 0x00;
  */
 void stopBootloaderIndicator()
 {
     TCCR1B = 0x00;
     TCCR1A = 0x00;
-    PORTB |= _BV(PB5);
+    DDRB = 0x00;
+    PORTB = 0x00;
 }
 
 /**
@@ -35,11 +32,11 @@ void stopBootloaderIndicator()
  * @return true
  * @return false
  */
-int pressAndHold(int holdTime)
+uint8_t pressAndHold(uint8_t holdTime)
 {
     DDRE = 0x00;
     PORTE = _BV(PE0);
-    int timer = 0;
+    uint8_t timer = 0;
 
     while (!(PINE & 0x01))
     {
@@ -64,7 +61,7 @@ int pressAndHold(int holdTime)
  * @param buf
  * @return Returns the final byte that lets us know if al lthe data has been sent or if more page data is going to be sent.
  */
-char writeProgramDataToFlash(volatile unsigned char *buf)
+uint8_t writeProgramDataToFlash(uint8_t *buf)
 {
     // Extract the page from the first two entries of the data array. Separates them into high and low bit.
     uint16_t pageNumberH = (*buf++) << 8;

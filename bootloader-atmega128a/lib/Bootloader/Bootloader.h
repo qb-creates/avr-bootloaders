@@ -1,9 +1,10 @@
 #ifndef BOOTLOADER_H
 #define BOOTLOADER_H
+#include <stdint.h>
 
-int pressAndHold(int holdTime);
+uint8_t pressAndHold(uint8_t holdTime);
 void startBootloaderIndicator();
 void stopBootloaderIndicator();
-char writeProgramDataToFlash(volatile unsigned char *buf);
+uint8_t writeProgramDataToFlash(uint8_t *buf);
 
 #endif

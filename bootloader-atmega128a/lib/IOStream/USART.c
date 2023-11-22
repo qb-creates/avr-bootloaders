@@ -1,11 +1,12 @@
 #include "USART.h"
-#include <avr/interrupt.h>
+#include <avr/io.h>
 
 const uint16_t programBufferMaxSize = 259;
 const uint8_t commandBufferMaxSize = 4;
+const uint8_t ack[] = {'\r'};
 
-unsigned char programDataBuffer[259];
-unsigned char commandDataBuffer[4];
+uint8_t programDataBuffer[259];
+uint8_t commandDataBuffer[4];
 uint16_t bufferCounter = 0;
 uint8_t commandBufferCounter = 0;
 bool commandReceived = false;
@@ -16,7 +17,7 @@ bool pageReceived = false;
  * @brief
  *
  */
-void configureUSART()
+void enableUSART()
 {
     // Put the upper part of the baud number here (bits 8 to 11)
     UBRR1H = 0;
@@ -27,15 +28,21 @@ void configureUSART()
     UCSR1C = _BV(UCSZ11) | _BV(UCSZ10);
 }
 
+void disableUSART()
+{
+    UBRR1H = 0;
+    UBRR1L = 0;
+    UCSR1B = 0;
+    UCSR1C = 0;
+}
+
 /**
  * Transmit data.
  * @param[in] data Data that will be transmitted.
  * */
-void transmitString(const char *data)
+void usartTransmit(const uint8_t data[], uint8_t length)
 {
-    size_t size = strlen(data);
-
-    for (unsigned int i = 0; i < size; i++)
+    for (uint8_t i = 0; i < length; i++)
     {
         // Wait until the Transmitter is ready
         loop_until_bit_is_set(UCSR1A, UDRE1);
@@ -45,25 +52,11 @@ void transmitString(const char *data)
     }
 }
 
-/**
- * @brief
- *
- * @param data
- */
-void transmitChar(unsigned char data)
-{
-    // Wait until the Transmitter is ready
-    loop_until_bit_is_set(UCSR1A, UDRE1);
-
-    // Sends out data
-    UDR1 = data;
-}
-
-void receiveData()
+void usartReceive()
 {
     if (UCSR1A & _BV(RXC1))
     {
-        unsigned char data = UDR1;
+        uint8_t data = UDR1;
 
         if (!writingToFlash)
         {
@@ -81,7 +74,8 @@ void receiveData()
 
         programDataBuffer[bufferCounter] = data;
         bufferCounter++;
-        transmitString("\r");
+
+        usartTransmit(ack, 1);
 
         if (bufferCounter == programBufferMaxSize)
         {

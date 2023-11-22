@@ -1,5 +1,4 @@
 #include <Timer.h>
-#include <avr/interrupt.h>
 #include <avr/io.h>
 
 /**
@@ -9,7 +8,7 @@
  * */
 void enableTimer()
 {
-    TCCR3B = _BV(WGM32) | _BV(CS32) | 1 << CS30;
+    TCCR3B = _BV(WGM32) | _BV(CS32) | _BV(CS30);
     OCR3A = (F_CPU / (2 * 1024 * .5)) - 1;
 }
 
