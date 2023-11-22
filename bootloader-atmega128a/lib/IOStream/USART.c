@@ -2,43 +2,15 @@
 #include <avr/interrupt.h>
 
 const uint16_t programBufferMaxSize = 259;
-const uint8_t commandBufferMaxSize = 11;
+const uint8_t commandBufferMaxSize = 4;
 
-volatile unsigned char programDataBuffer[259];
-volatile unsigned char commandDataBuffer[11];
-volatile uint16_t bufferCounter = 0;
-volatile uint8_t commandBufferCounter = 0;
-volatile bool commandReceived = false;
-volatile bool writingToFlash = false;
-volatile bool pageReceived = false;
-
-ISR(USART1_RX_vect)
-{
-    unsigned char data = UDR1;
-
-    if (!writingToFlash)
-    {
-        commandDataBuffer[commandBufferCounter] = data;
-        commandBufferCounter++;
-
-        if (data == '\0' || commandBufferCounter >= commandBufferMaxSize)
-        {
-            commandReceived = true;
-            commandBufferCounter = 0;
-        }
-        return;
-    }
-
-    programDataBuffer[bufferCounter] = data;
-    bufferCounter++;
-    transmitString("\r");
-
-    if (bufferCounter == programBufferMaxSize)
-    {
-        bufferCounter = 0;
-        pageReceived = true;
-    }
-}
+unsigned char programDataBuffer[259];
+unsigned char commandDataBuffer[4];
+uint16_t bufferCounter = 0;
+uint8_t commandBufferCounter = 0;
+bool commandReceived = false;
+bool writingToFlash = false;
+bool pageReceived = false;
 
 /**
  * @brief
@@ -51,7 +23,7 @@ void configureUSART()
     UBRR1L = 3;
 
     // Configures the Registers
-    UCSR1B = (1 << RXCIE1) | (1 << RXEN1) | (1 << TXEN1);
+    UCSR1B = (1 << RXEN1) | (1 << TXEN1);
     UCSR1C = _BV(UCSZ11) | _BV(UCSZ10);
 }
 
@@ -85,4 +57,36 @@ void transmitChar(unsigned char data)
 
     // Sends out data
     UDR1 = data;
+}
+
+void receiveData()
+{
+    if (UCSR1A & _BV(RXC1))
+    {
+        unsigned char data = UDR1;
+
+        if (!writingToFlash)
+        {
+            commandDataBuffer[commandBufferCounter] = data;
+            commandBufferCounter++;
+
+            if (data == '\0' || commandBufferCounter >= commandBufferMaxSize)
+            {
+                commandReceived = true;
+                commandBufferCounter = 0;
+            }
+
+            return;
+        }
+
+        programDataBuffer[bufferCounter] = data;
+        bufferCounter++;
+        transmitString("\r");
+
+        if (bufferCounter == programBufferMaxSize)
+        {
+            bufferCounter = 0;
+            pageReceived = true;
+        }
+    }
 }

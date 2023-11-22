@@ -73,8 +73,6 @@ char writeProgramDataToFlash(volatile unsigned char *buf)
     // Get the page address by multiplying the page size times the page number.
     uint16_t pageAddress = (pageNumberH + pageNumberL) * SPM_PAGESIZE;
 
-    cli();
-
     // Wait for any active eeprom writes to complete.
     eeprom_busy_wait();
 
@@ -102,7 +100,6 @@ char writeProgramDataToFlash(volatile unsigned char *buf)
 
     // Enable Read While Write Section
     boot_rww_enable();
-    sei();
 
     // Return the final bayte of the dataArray;
     return *buf;
