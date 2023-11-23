@@ -1,13 +1,13 @@
+#include "BootloadUtility.h"
+#include "CommandUtility.h"
+#include "Timer.h"
+#include "USART.h"
 #include <avr/boot.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <avr/wdt.h>
-#include <string.h>
 #include <stdbool.h>
-#include "BootloadUtility.h"
-#include "Timer.h"
-#include "USART.h"
-#include "CommandUtility.h"
+#include <string.h>
 
 uint8_t dataBuffer[259];
 
@@ -19,7 +19,7 @@ int main(void)
     bool applicationExist = pgm_read_word(0) != 0xFFFF;
     uint8_t resetTimer = 0;
 
-    // Return to application section 
+    // Return to application section
     if (!pressAndHold(5) && applicationExist)
     {
         disableTimer();
@@ -32,19 +32,22 @@ int main(void)
 
     while (true)
     {
-        usartReceive(dataBuffer);
+        bool dataReceived = usartReceive(dataBuffer);
+
+        if (dataReceived)
+            resetTimer = 0;
 
         if (ETIFR & _BV(OCF3A))
         {
             ETIFR |= _BV(OCF3A);
             resetTimer++;
         }
-        
+
         checkForValidCommand(dataBuffer);
         bool uploadComplete = checkForPage(dataBuffer);
 
         // Exit bootloader.
-        if ((!writingToFlash && resetTimer >= 20 && applicationExist) || uploadComplete)
+        if ((!listenForCommand && resetTimer >= 20 && applicationExist) || uploadComplete)
             break;
     }
 

@@ -59,7 +59,7 @@ uint8_t pressAndHold(uint8_t holdTime)
  * @brief Writes the page data
  *
  * @param buf
- * @return Returns the final byte that lets us know if al lthe data has been sent or if more page data is going to be sent.
+ * @return Returns the final byte that lets us know if all of the data has been sent or if more page data is going to be sent.
  */
 uint8_t writeProgramDataToFlash(uint8_t *buf)
 {
@@ -98,6 +98,6 @@ uint8_t writeProgramDataToFlash(uint8_t *buf)
     // Enable Read While Write Section
     boot_rww_enable();
 
-    // Return the final bayte of the dataArray;
+    // Return the final byte of the dataArray;
     return *buf;
 }

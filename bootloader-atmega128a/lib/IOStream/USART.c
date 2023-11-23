@@ -1,16 +1,11 @@
-#include <avr/io.h>
 #include "USART.h"
+#include <avr/io.h>
 
-const uint16_t programBufferMaxSize = 259;
-const uint8_t commandBufferMaxSize = 4;
-const uint8_t ack[] = {'\r'};
+const uint16_t bufferMaxSize = 259;
 
-// uint8_t programDataBuffer[259];
-// uint8_t commandDataBuffer[4];
 uint16_t bufferCounter = 0;
-uint8_t commandBufferCounter = 0;
+bool listenForCommand = false;
 bool commandReceived = false;
-bool writingToFlash = false;
 bool pageReceived = false;
 
 /**
@@ -52,35 +47,29 @@ void usartTransmit(const uint8_t data[], uint8_t length)
     }
 }
 
-void usartReceive(uint8_t *buffer)
+bool usartReceive(uint8_t *buffer)
 {
     if (UCSR1A & _BV(RXC1))
     {
         uint8_t data = UDR1;
 
-        if (!writingToFlash)
-        {
-            buffer[commandBufferCounter] = data;
-            commandBufferCounter++;
-
-            if (data == '\0' || commandBufferCounter >= commandBufferMaxSize)
-            {
-                commandReceived = true;
-                commandBufferCounter = 0;
-            }
-
-            return;
-        }
-
         buffer[bufferCounter] = data;
         bufferCounter++;
 
-        usartTransmit(ack, 1);
+        if (data == '\0' && !listenForCommand)
+        {
+            bufferCounter = 0;
+            commandReceived = true;
+            return true;
+        }
 
-        if (bufferCounter == programBufferMaxSize)
+        if (bufferCounter == bufferMaxSize)
         {
             bufferCounter = 0;
             pageReceived = true;
+            return true;
         }
     }
+
+    return false;
 }
