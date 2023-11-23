@@ -1,6 +1,6 @@
 #include <avr/boot.h>
 #include <stdbool.h>
-#include "Bootloader.h"
+#include "BootloadUtility.h"
 /**
  * @brief Configure 16-bit Timer1. It is set to Compare Output Mode.
  * Output OC1A is toggled on compare match every 100ms (Focn = 5Hz). PB5 can be

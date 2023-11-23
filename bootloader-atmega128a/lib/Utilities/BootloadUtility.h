@@ -1,5 +1,5 @@
-#ifndef BOOTLOADER_H
-#define BOOTLOADER_H
+#ifndef BOOTLOADUTILITY_H
+#define BOOTLOADUTILITY_H
 #include <stdint.h>
 
 uint8_t pressAndHold(uint8_t holdTime);

@@ -6,7 +6,7 @@
  * Output OC3A/B/C have no operation. A 1024 prescale factor is selected.
  * Enables compare match interrupt.
  * */
-void enableTimer()
+void enableTimer(void)
 {
     TCCR3B = _BV(WGM32) | _BV(CS32) | _BV(CS30);
     OCR3A = (F_CPU / (2 * 1024 * .5)) - 1;
@@ -18,7 +18,16 @@ void enableTimer()
  * connected to an LED to let the user know when the device is in
  * bootloader mode.
  */
-void disableTimer()
+void disableTimer(void)
 {
     TCCR3B = 0;
+}
+
+void checkComparMatchFlag(void)
+{
+    if (ETIFR & _BV(OCF3A))
+    {
+        ETIFR |= _BV(OCF3A);
+        // resetTimer++;
+    }
 }
