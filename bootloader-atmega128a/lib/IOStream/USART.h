@@ -7,7 +7,7 @@
 extern const uint16_t bufferMaxSize;
 
 extern uint16_t bufferCounter;
-extern bool listenForCommand;
+extern bool writeToFlash;
 extern bool commandReceived;
 extern bool pageReceived;
 

@@ -4,7 +4,7 @@
 const uint16_t bufferMaxSize = 259;
 
 uint16_t bufferCounter = 0;
-bool listenForCommand = false;
+bool writeToFlash = false;
 bool commandReceived = false;
 bool pageReceived = false;
 
@@ -37,7 +37,7 @@ void disableUSART()
  * */
 void usartTransmit(const uint8_t data[], uint8_t length)
 {
-    for (uint8_t i = 0; i < length; i++)
+    for (uint8_t i = 0; i < length; ++i)
     {
         // Wait until the Transmitter is ready
         loop_until_bit_is_set(UCSR1A, UDRE1);
@@ -54,9 +54,9 @@ bool usartReceive(uint8_t *buffer)
         uint8_t data = UDR1;
 
         buffer[bufferCounter] = data;
-        bufferCounter++;
+        ++bufferCounter;
 
-        if (data == '\0' && !listenForCommand)
+        if (data == '\0' && !writeToFlash)
         {
             bufferCounter = 0;
             commandReceived = true;

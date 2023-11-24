@@ -3,6 +3,7 @@
 #include "USART.h"
 #include <avr/boot.h>
 #include <string.h>
+#include <avr/eeprom.h>
 
 const uint8_t commandBufferMaxSize = 4;
 const char *requestSignatureBytes = "RSB";
@@ -31,7 +32,9 @@ void checkForValidCommand(uint8_t *dataBuffer)
     }
     else if (memcmp(dataBuffer, requestToUpdate, commandBufferMaxSize) == 0)
     {
-        listenForCommand = true;
+        writeToFlash = true;
+        OCR1A = (F_CPU / (2 * 1024 * 2)) - 1;
+        eeprom_update_byte((uint8_t *)46, 'w');
         usartTransmit(clearToUpdateAck, 3);
     }
 }
@@ -52,7 +55,7 @@ bool checkForPage(uint8_t *dataBuffer)
     uint8_t finalByte = writeProgramDataToFlash(dataBuffer);
 
     // Acknowledge that the 259 bytes of data were received
-    for (int i = 0; i < 259; i++)
+    for (int i = 0; i < 259; ++i)
     {
         usartTransmit(ack, 1);
     }
