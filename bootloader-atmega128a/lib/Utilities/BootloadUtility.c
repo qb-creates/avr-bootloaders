@@ -1,6 +1,6 @@
+#include "BootloadUtility.h"
 #include <avr/boot.h>
 #include <stdbool.h>
-#include "BootloadUtility.h"
 /**
  * @brief Configure 16-bit Timer1. It is set to Compare Output Mode.
  * Output OC1A is toggled on compare match every 100ms (Focn = 5Hz). PB5 can be
@@ -18,7 +18,7 @@ void startBootloaderIndicator()
 /**
  * @brief Stops the bootloader indicator output. Resets all Timer 1 registers back to 0x00;
  */
-void stopBootloaderIndicator()
+void stopBootloaderIndicator(void)
 {
     TCCR1B = 0x00;
     TCCR1A = 0x00;
@@ -38,7 +38,7 @@ uint8_t pressAndHold(uint8_t holdTime)
     PORTE = _BV(PE0);
     uint8_t timer = 0;
 
-    while (!(PINE & 0x01))
+    do
     {
         if (ETIFR & _BV(OCF3A))
         {
@@ -50,7 +50,7 @@ uint8_t pressAndHold(uint8_t holdTime)
         {
             return true;
         }
-    }
+    } while (!(PINE & 0x01));
 
     return false;
 }

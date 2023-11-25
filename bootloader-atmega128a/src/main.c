@@ -10,20 +10,17 @@
 #include <stdbool.h>
 #include <string.h>
 
-uint8_t dataBuffer[259];
-
 int main(void)
 {
     enableTimer();
     enableUSART();
 
-    bool applicationExist = pgm_read_word(0) != 0xFFFF;
     uint8_t resetTimer = 0;
-
     uint8_t bootloaderByte = eeprom_read_byte((uint8_t *)46);
+    uint8_t dataBuffer[259];
 
     // Return to application section
-    if (!pressAndHold(5) && bootloaderByte == 'c' && applicationExist)
+    if (bootloaderByte == 'c' && !pressAndHold(5))
     {
         disableTimer();
         disableUSART();
@@ -42,7 +39,7 @@ int main(void)
         if (dataReceived)
             resetTimer = 0;
 
-        if (ETIFR & _BV(OCF3A) && bootloaderByte == 'c' && applicationExist)
+        if (ETIFR & _BV(OCF3A) && bootloaderByte == 'c')
         {
             ETIFR |= _BV(OCF3A);
             ++resetTimer;
@@ -59,9 +56,7 @@ int main(void)
         }
     }
 
-    // Reset mcu and registers.
-    disableTimer();
-    disableUSART();
-    stopBootloaderIndicator();
     wdt_enable(WDTO_2S);
+
+    while (true) {};
 }

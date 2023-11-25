@@ -15,17 +15,15 @@ bool pageReceived = false;
 void enableUSART()
 {
     // Put the upper part of the baud number here (bits 8 to 11)
-    UBRR1H = 0;
     UBRR1L = 3;
 
     // Configures the Registers
-    UCSR1B = (1 << RXEN1) | (1 << TXEN1);
+    UCSR1B = _BV(RXEN1) | _BV(TXEN1);
     UCSR1C = _BV(UCSZ11) | _BV(UCSZ10);
 }
 
 void disableUSART()
 {
-    UBRR1H = 0;
     UBRR1L = 0;
     UCSR1B = 0;
     UCSR1C = 0;
@@ -41,7 +39,7 @@ void usartTransmit(const uint8_t data[], uint8_t length)
     {
         // Wait until the Transmitter is ready
         loop_until_bit_is_set(UCSR1A, UDRE1);
-
+    
         // Sends out data
         UDR1 = data[i];
     }

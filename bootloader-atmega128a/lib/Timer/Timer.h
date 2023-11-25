@@ -3,6 +3,6 @@
 
 void enableTimer(void);
 void disableTimer(void);
-void checkComparMatchFlag(void);
+// void checkComparMatchFlag(void);
 
 #endif

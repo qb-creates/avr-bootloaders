@@ -4,7 +4,7 @@
 
 uint8_t pressAndHold(uint8_t holdTime);
 void startBootloaderIndicator();
-void stopBootloaderIndicator();
+void stopBootloaderIndicator(void);
 uint8_t writeProgramDataToFlash(uint8_t *buf);
 
 #endif
