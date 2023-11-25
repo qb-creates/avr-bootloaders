@@ -1,14 +1,7 @@
-#include "BootloadUtility.h"
+#include <avr/eeprom.h>
+#include <avr/wdt.h>
 #include "CommandUtility.h"
 #include "Timer.h"
-#include "USART.h"
-#include <avr/boot.h>
-#include <avr/eeprom.h>
-#include <avr/interrupt.h>
-#include <avr/pgmspace.h>
-#include <avr/wdt.h>
-#include <stdbool.h>
-#include <string.h>
 
 int main(void)
 {

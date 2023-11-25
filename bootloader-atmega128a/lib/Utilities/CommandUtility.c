@@ -1,9 +1,7 @@
-#include "CommandUtility.h"
-#include "BootloadUtility.h"
-#include "USART.h"
 #include <avr/boot.h>
 #include <string.h>
 #include <avr/eeprom.h>
+#include "CommandUtility.h"
 
 const uint8_t commandBufferMaxSize = 4;
 const char *requestSignatureBytes = "RSB";

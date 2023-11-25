@@ -1,5 +1,5 @@
-#include "USART.h"
 #include <avr/io.h>
+#include "USART.h"
 
 const uint16_t bufferMaxSize = 259;
 

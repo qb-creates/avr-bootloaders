@@ -1,7 +1,8 @@
 #ifndef COMMANDS_H
 #define COMMANDS_H
-#include <stdint.h>
-#include <stdbool.h>
+
+#include "BootloadUtility.h"
+#include "USART.h"
 
 const uint8_t commandBufferMaxSize;
 

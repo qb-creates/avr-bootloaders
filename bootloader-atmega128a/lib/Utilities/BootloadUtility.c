@@ -35,7 +35,7 @@ void stopBootloaderIndicator(void)
 uint8_t pressAndHold(uint8_t holdTime)
 {
     DDRE = 0x00;
-    PORTE = _BV(PE0);
+    PORTE = _BV(PE4);
     uint8_t timer = 0;
 
     do
@@ -50,7 +50,7 @@ uint8_t pressAndHold(uint8_t holdTime)
         {
             return true;
         }
-    } while (!(PINE & 0x01));
+    } while (!(PINE & _BV(PE4)));
 
     return false;
 }
