@@ -1,6 +1,7 @@
 #include <avr/eeprom.h>
 #include <avr/wdt.h>
 #include "CommandUtility.h"
+#include "ButtonPressUtility.h"
 #include "Timer.h"
 
 int main(void)
@@ -12,7 +13,7 @@ int main(void)
     enableTimer();
 
     // Return to application section
-    if (applicationExist && !pressAndHold(5))
+    if (applicationExist && !pressAndHold(&DDRE, PE4, 5))
     {
         disableTimer();
         asm("jmp 0x000");
@@ -24,12 +25,18 @@ int main(void)
 
     while (true)
     {
-        bool dataReceived = usartReceive(dataBuffer);
-        checkForValidCommand(dataBuffer);
-        bool uploadComplete = checkForPage(dataBuffer);
-
-        if (dataReceived)
+        enum DataString dataStringType = usartReceive(dataBuffer);
+        
+        if (dataStringType == CommandString)
+        {
             resetTimer = 0;
+            executeCommand(dataBuffer);
+        }
+        else if (dataStringType == PageString)
+        {
+            resetTimer = 0;
+            checkForPage(dataBuffer);
+        }
 
         if (ETIFR & _BV(OCF3A) && applicationExist)
         {
@@ -38,7 +45,7 @@ int main(void)
         }
 
         // Reset Microcontroller.
-        if (resetTimer >= 20 || uploadComplete)
+        if (resetTimer >= 20)
         {
             stopBootloaderIndicator();
             wdt_enable(WDTO_2S);

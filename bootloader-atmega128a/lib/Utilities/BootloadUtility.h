@@ -1,8 +1,9 @@
 #ifndef BOOTLOADUTILITY_H
 #define BOOTLOADUTILITY_H
-#include <stdint.h>
 
-uint8_t pressAndHold(uint8_t holdTime);
+#include <stdint.h>
+#include <stdbool.h>
+
 void startBootloaderIndicator(uint8_t frequency);
 void stopBootloaderIndicator(void);
 void setBootloaderIndicatorFrequency(uint8_t frequency);

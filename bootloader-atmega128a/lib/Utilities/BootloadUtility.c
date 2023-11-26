@@ -1,6 +1,6 @@
-#include "BootloadUtility.h"
 #include <avr/boot.h>
-#include <stdbool.h>
+#include "BootloadUtility.h"
+
 /**
  * @brief Configure 16-bit Timer1. It is set to Compare Output Mode.
  * Output OC1A is toggled on compare match every 100ms (Focn = 5Hz). PB5 can be
@@ -26,45 +26,25 @@ void stopBootloaderIndicator(void)
     PORTB = 0x00;
 }
 
+/**
+ * @brief Set the Bootloader Indicator Frequency object
+ * 
+ * @param frequency 
+ */
 void setBootloaderIndicatorFrequency(uint8_t frequency)
 {
     OCR1A = (F_CPU / (2 * 1024 * frequency)) - 1;
 }
 
 /**
- * @brief
+ * @brief Writes the page data and returns the page status byte.
  *
- * @return true
- * @return false
- */
-uint8_t pressAndHold(uint8_t holdTime)
-{
-    DDRE = 0x00;
-    PORTE = _BV(PE4);
-    uint8_t timer = 0;
-
-    do
-    {
-        if (ETIFR & _BV(OCF3A))
-        {
-            ETIFR |= _BV(OCF3A);
-            ++timer;
-        }
-
-        if (timer == holdTime)
-        {
-            return true;
-        }
-    } while (!(PINE & _BV(PE4)));
-
-    return false;
-}
-
-/**
- * @brief Writes the page data
- *
- * @param buf
- * @return Returns the final byte that lets us know if all of the data has been sent or if more page data is going to be sent.
+ * @param buf Buffer that holds the page data. The buffer should be 259 bytes.
+ * @return Returns the page status byte. 0xFE indicates that the last page of data has been sent
+ * @note Page buffer should be 259 bytes. 
+ * @note Bytes 1 and 2 is the page address.
+ * @note Bytes 3 through 258 is the 256 bytes of program data that will be written.
+ * @note Byte 259 is the page status byte.
  */
 uint8_t writeProgramDataToFlash(uint8_t *buf)
 {
@@ -86,12 +66,12 @@ uint8_t writeProgramDataToFlash(uint8_t *buf)
 
     for (uint16_t i = 0; i < SPM_PAGESIZE; i += 2)
     {
-        // Build opcode while setting up little-endian word.
-        uint16_t opcode = *buf++;
-        opcode += (*buf++) << 8;
+        // Get program data word and set up as little-endia.
+        uint16_t w = *buf++;
+        w += (*buf++) << 8;
 
         // Load page temp buffers
-        boot_page_fill(pageAddress + i, opcode);
+        boot_page_fill(pageAddress + i, w);
     }
 
     // Store buffer in flash page.
@@ -103,6 +83,6 @@ uint8_t writeProgramDataToFlash(uint8_t *buf)
     // Enable Read While Write Section
     boot_rww_enable();
 
-    // Return the final byte of the dataArray;
+    // Return the page status byte;
     return *buf;
 }

@@ -2,11 +2,8 @@
 #include "USART.h"
 
 const uint16_t bufferMaxSize = 259;
-
 uint16_t bufferCounter = 0;
 bool writeToFlash = false;
-bool commandReceived = false;
-bool pageReceived = false;
 
 /**
  * @brief Enables usart communication 
@@ -49,9 +46,9 @@ void usartTransmit(const uint8_t data[], uint8_t length)
  * @brief Get the data from the usart receive data buffer and store it into the buffer 
  * 
  * @param buffer Buffer where the received data will be stored.
- * @return Return true if data was present in the receive data buffer. Return false if no data was present in the receive data buffer.
+ * @return Returns the
  */
-bool usartReceive(uint8_t *buffer)
+enum DataString usartReceive(uint8_t *buffer)
 {
     // If there is unread data in the receive buffer 
     if (UCSR1A & _BV(RXC1))
@@ -64,17 +61,15 @@ bool usartReceive(uint8_t *buffer)
         if (data == '\0' && !writeToFlash)
         {
             bufferCounter = 0;
-            commandReceived = true;
-            return true;
+            return CommandString;
         }
 
         if (bufferCounter == bufferMaxSize)
         {
             bufferCounter = 0;
-            pageReceived = true;
-            return true;
+            return PageString;
         }
     }
 
-    return false;
+    return IncompleteString;
 }
