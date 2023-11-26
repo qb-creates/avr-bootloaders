@@ -22,12 +22,3 @@ void disableTimer(void)
 {
     TCCR3B = 0;
 }
-
-// void checkComparMatchFlag(void)
-// {
-//     if (ETIFR & _BV(OCF3A))
-//     {
-//         ETIFR |= _BV(OCF3A);
-//         // resetTimer++;
-//     }
-// }

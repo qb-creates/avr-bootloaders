@@ -5,23 +5,22 @@
 
 int main(void)
 {
-    enableTimer();
-    enableUSART();
-
-    uint8_t resetTimer = 0;
-    uint8_t bootloaderByte = eeprom_read_byte((uint8_t *)46);
+    bool applicationExist = eeprom_read_byte(bootloaderStatusAddress) == uploadCompleteCode;
     uint8_t dataBuffer[259];
+    uint8_t resetTimer = 0;
+
+    enableTimer();
 
     // Return to application section
-    if (bootloaderByte == 'c' && !pressAndHold(5))
+    if (applicationExist && !pressAndHold(5))
     {
         disableTimer();
-        disableUSART();
         asm("jmp 0x000");
     }
 
     // Continue to bootloader section.
-    startBootloaderIndicator();
+    enableUSART();
+    startBootloaderIndicator(5);
 
     while (true)
     {
@@ -32,24 +31,18 @@ int main(void)
         if (dataReceived)
             resetTimer = 0;
 
-        if (ETIFR & _BV(OCF3A) && bootloaderByte == 'c')
+        if (ETIFR & _BV(OCF3A) && applicationExist)
         {
             ETIFR |= _BV(OCF3A);
             ++resetTimer;
         }
 
-        // Exit bootloader.
-        if (resetTimer >= 20)
-            break;
-
-        if (uploadComplete)
+        // Reset Microcontroller.
+        if (resetTimer >= 20 || uploadComplete)
         {
-            eeprom_update_byte((uint8_t *)46, 'c');
-            break;
+            stopBootloaderIndicator();
+            wdt_enable(WDTO_2S);
+            while (true);
         }
     }
-
-    wdt_enable(WDTO_2S);
-
-    while (true) {};
 }

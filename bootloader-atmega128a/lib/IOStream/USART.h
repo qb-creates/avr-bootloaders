@@ -12,7 +12,6 @@ extern bool commandReceived;
 extern bool pageReceived;
 
 void enableUSART();
-void disableUSART();
 void usartTransmit(const uint8_t data[], uint8_t length);
 bool usartReceive(uint8_t *buffer);
 

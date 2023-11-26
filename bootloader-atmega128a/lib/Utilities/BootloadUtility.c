@@ -7,12 +7,12 @@
  * connected to an LED to let the user know when the device is in
  * bootloader mode.720
  */
-void startBootloaderIndicator()
+void startBootloaderIndicator(uint8_t frequency)
 {
     DDRB |= _BV(PB5);
     TCCR1B = _BV(WGM12) | _BV(CS12) | _BV(CS10);
     TCCR1A = _BV(COM1A0);
-    OCR1A = (F_CPU / (2 * 1024 * 5)) - 1;
+    setBootloaderIndicatorFrequency(frequency);
 }
 
 /**
@@ -24,6 +24,11 @@ void stopBootloaderIndicator(void)
     TCCR1A = 0x00;
     DDRB = 0x00;
     PORTB = 0x00;
+}
+
+void setBootloaderIndicatorFrequency(uint8_t frequency)
+{
+    OCR1A = (F_CPU / (2 * 1024 * frequency)) - 1;
 }
 
 /**
