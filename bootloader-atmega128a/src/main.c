@@ -13,7 +13,7 @@ int main(void)
     enableTimer();
 
     // Return to application section
-    if (applicationExist && !pressAndHold(&DDRE, PE4, 5))
+    if (applicationExist && !pressAndHold(&PINE, PE4, 5))
     {
         disableTimer();
         asm("jmp 0x000");
