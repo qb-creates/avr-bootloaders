@@ -10,13 +10,9 @@ const uint8_t uploadCompleteCode = 'c';
 const uint8_t uploadeFailedCode = 'w';
 
 // Accepted Commands
-const char *requestSignatureBytes = "RSB";
-const char *requestBootConfig = "RBC";
 const char *requestToUpdate = "RTU";
 
 // Command Responses
-const uint8_t signatureBytes[] = {0x1E, 0x97, 0x02};
-const uint8_t clearToUpdateAck[] = {'C', 'T', 'U'};
 const uint8_t pageAck[] = {'P', 'a', 'g', 'e'};
 const uint8_t ack[] = {'\r'};
 
@@ -30,20 +26,12 @@ const uint8_t uploadCompleteByte = 0xFE;
  */
 void executeCommand(uint8_t *dataBuffer)
 {
-    if (!memcmp(dataBuffer, requestBootConfig, commandBufferMaxSize))
+    if (!memcmp(dataBuffer, requestToUpdate, commandBufferMaxSize))
     {
-        usartTransmit((uint8_t[]){boot_lock_fuse_bits_get(GET_HIGH_FUSE_BITS)}, 1);
-    }
-    else if (!memcmp(dataBuffer, requestSignatureBytes, commandBufferMaxSize))
-    {
-        usartTransmit(signatureBytes, 3);
-    }
-    else if (!memcmp(dataBuffer, requestToUpdate, commandBufferMaxSize))
-    {
-        writeToFlash = true;
+        uint8_t ack[] = {0x1E, 0x97, 0x02, boot_lock_fuse_bits_get(GET_HIGH_FUSE_BITS), 'C', 'T', 'U'};
         eeprom_update_byte(bootloaderStatusAddress, uploadeFailedCode);
         setBootloaderIndicatorFrequency(2);
-        usartTransmit(clearToUpdateAck, 3);
+        usartTransmit(ack, 7);
     }
 }
 
@@ -71,6 +59,7 @@ void checkForPage(uint8_t *dataBuffer)
         eeprom_update_byte(bootloaderStatusAddress, uploadCompleteCode);
         stopBootloaderIndicator();
         wdt_enable(WDTO_2S);
-        while (1);
+        while (1)
+            ;
     }
 }

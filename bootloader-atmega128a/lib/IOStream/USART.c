@@ -1,10 +1,6 @@
 #include <avr/io.h>
 #include "USART.h"
 
-const uint16_t bufferMaxSize = 259;
-uint16_t bufferCounter = 0;
-bool writeToFlash = false;
-
 /**
  * @brief Enables usart communication 
  * 
@@ -45,31 +41,19 @@ void usartTransmit(const uint8_t data[], uint8_t length)
 /**
  * @brief Get the data from the usart receive data buffer and store it into the buffer 
  * 
- * @param buffer Buffer where the received data will be stored.
  * @return Returns the
  */
-enum DataString usartReceive(uint8_t *buffer)
+struct DataStruct usartReceive()
 {
+    struct DataStruct dataStruct;
+    dataStruct.dataReceived = false;
+    
     // If there is unread data in the receive buffer 
     if (UCSR1A & _BV(RXC1))
     {
-        uint8_t data = UDR1;
-
-        buffer[bufferCounter] = data;
-        ++bufferCounter;
-
-        if (data == '\0' && !writeToFlash)
-        {
-            bufferCounter = 0;
-            return CommandString;
-        }
-
-        if (bufferCounter == bufferMaxSize)
-        {
-            bufferCounter = 0;
-            return PageString;
-        }
+        dataStruct.dataReceived = true;
+        dataStruct.data = UDR1;
     }
 
-    return IncompleteString;
+    return dataStruct;
 }
