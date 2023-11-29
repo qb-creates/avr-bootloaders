@@ -2,10 +2,12 @@
 #include "BootloadUtility.h"
 
 /**
- * @brief Configure 16-bit Timer1. It is set to Compare Output Mode.
- * Output OC1A is toggled on compare match every 100ms (Focn = 5Hz). PB5 can be
- * connected to an LED to let the user know when the device is in
- * bootloader mode.720
+ * @brief Configure 16-bit Timer1. 
+ * 
+ * @param frequency The frequency at which the connected indicator light will flash.
+ * @note The timer is configured to be in output compare mode.
+ * @note Indicator light should be connected to OC1A located on Pin B5.
+ * @note OCR1A = (F_CPU / (2 * 1024 * frequency)) - 1;
  */
 void startBootloaderIndicator(uint8_t frequency)
 {
@@ -27,9 +29,10 @@ void stopBootloaderIndicator(void)
 }
 
 /**
- * @brief Set the Bootloader Indicator Frequency object
+ * @brief Set the bootloader indicator frequency
  * 
- * @param frequency 
+ * @param frequency The frequency at which the connected indicator light will flash.
+ * @note OCR1A = (F_CPU / (2 * 1024 * frequency)) - 1;
  */
 void setBootloaderIndicatorFrequency(uint8_t frequency)
 {

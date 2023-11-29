@@ -28,7 +28,9 @@ void executeCommand(uint8_t *dataBuffer)
 {
     if (!memcmp(dataBuffer, requestToUpdate, commandBufferMaxSize))
     {
+        // Store the devices signature, high fuse bits, and "CTU" in an array.
         uint8_t ack[] = {0x1E, 0x97, 0x02, boot_lock_fuse_bits_get(GET_HIGH_FUSE_BITS), 'C', 'T', 'U'};
+        
         eeprom_update_byte(bootloaderStatusAddress, uploadeFailedCode);
         setBootloaderIndicatorFrequency(2);
         usartTransmit(ack, 7);
@@ -59,7 +61,6 @@ void checkForPage(uint8_t *dataBuffer)
         eeprom_update_byte(bootloaderStatusAddress, uploadCompleteCode);
         stopBootloaderIndicator();
         wdt_enable(WDTO_2S);
-        while (1)
-            ;
+        while (1);
     }
 }

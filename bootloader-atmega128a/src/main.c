@@ -1,17 +1,16 @@
-#include "ButtonPressUtility.h"
-#include "CommandUtility.h"
-#include "Timer.h"
 #include <avr/eeprom.h>
 #include <avr/wdt.h>
+#include "ButtonUtility.h"
+#include "CommandUtility.h"
+#include "Timer.h"
 
 int main(void)
 {
-    bool applicationExist = eeprom_read_byte(bootloaderStatusAddress) == uploadCompleteCode;
     uint8_t dataBuffer[259];
+    uint16_t bufferCounter = 0;
     uint8_t resetTimer = 0;
     bool writeToFlash = false;
-    const uint16_t bufferMaxSize = 259;
-    uint16_t bufferCounter = 0;
+    bool applicationExist = eeprom_read_byte(bootloaderStatusAddress) == uploadCompleteCode;
 
     enableTimer();
 
@@ -38,21 +37,21 @@ int main(void)
             if (dataStruct.data == '\0' && !writeToFlash)
             {
                 bufferCounter = 0;
-                resetTimer = 0;
                 writeToFlash = true;
                 executeCommand(dataBuffer);
             }
-            else if (bufferCounter == bufferMaxSize)
+            else if (bufferCounter == 259)
             {
                 bufferCounter = 0;
-                resetTimer = 0;
                 checkForPage(dataBuffer);
             }
+            
+            resetTimer = 0;
         }
 
-        if (ETIFR & _BV(OCF3A) && (applicationExist || writeToFlash))
+        if (checkOutputCompareFlag() && (applicationExist || writeToFlash))
         {
-            ETIFR |= _BV(OCF3A);
+            clearTimerFlag();
             ++resetTimer;
         }
 

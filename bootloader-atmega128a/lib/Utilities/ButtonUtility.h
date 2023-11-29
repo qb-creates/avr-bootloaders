@@ -1,5 +1,5 @@
-#ifndef BUTTONPRESSUTILITY_H
-#define BUTTONPRESSUTILITY_H
+#ifndef BUTTONUTILITY_H
+#define BUTTONUTILITY_H
 
 #include <stdbool.h>
 #include <stdint.h>

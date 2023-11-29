@@ -8,17 +8,12 @@
  * @note 1 stop bit
  * @note No parity
  * @note Asynchronous operation
- * @note 115.2kbps baud rate 
+ * @note Using a clock frequency of 7372800 Hz, set UBRR1 to 3 for a baud rate of 112.5kbps
  */
 void enableUSART()
 {
-    // Using a clock frequency of 7372800 Hz, set UBRR1 to 3 for a baud rate of 112.5kbps.
     UBRR1L = 3;
-
-    // Enable transmitter and receiver
     UCSR1B = _BV(RXEN1) | _BV(TXEN1);
-
-    // Asynchrounous operation, 8 data bits, 1 stop bit, no parity, asynchronous
     UCSR1C = _BV(UCSZ11) | _BV(UCSZ10);
 }
 
