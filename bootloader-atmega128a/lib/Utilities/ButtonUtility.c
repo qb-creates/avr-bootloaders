@@ -17,23 +17,22 @@ bool pressAndHold(volatile uint8_t *inputPins, uint8_t pin, uint8_t holdTime)
 {
     volatile uint8_t *dataDirectionRegister = inputPins + 1;
     volatile uint8_t *dataRegister = inputPins + 2;
-    uint8_t timer = 0;
 
-    // Set the data direction register to be all inputs. Increment the Data Direction Register address to get the Data Register address
+    // Set the data direction register to be all inputs.
     *dataDirectionRegister = 0x00;
 
     // Enable pull up resister for the specified pin.
     *dataRegister = _BV(pin);
 
-    while (!(*inputPins & _BV(pin)) && (timer != holdTime))
+    while (!(*inputPins & _BV(pin)) && (holdTime != 0))
     {
         if (checkOutputCompareFlag())
         {
             clearTimerFlag();
-            ++timer;
+            --holdTime;
         }
     }
 
     *dataRegister = 0x00;
-    return (timer == holdTime);
+    return (holdTime == 0);
 }

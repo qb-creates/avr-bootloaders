@@ -1,12 +1,17 @@
 #ifndef BOOTLOADUTILITY_H
 #define BOOTLOADUTILITY_H
 
-#include <stdint.h>
-#include <stdbool.h>
+#include <avr/wdt.h>
+#include "USART.h"
 
-void startBootloaderIndicator(uint8_t frequency);
+const uint8_t uploadCompleteByte;
+const uint8_t uploadCompleteCode;
+const uint8_t uploadeFailedCode;
+uint8_t *bootloaderStatusAddress;
+
+void startBootloadProcess(void);
+void startBootloaderIndicator(void);
 void stopBootloaderIndicator(void);
-void setBootloaderIndicatorFrequency(uint8_t frequency);
-uint8_t writeProgramDataToFlash(uint8_t *buf);
+void writeProgramDataToFlash(uint8_t *buf);
 
 #endif

@@ -1,15 +1,16 @@
 #include <avr/eeprom.h>
+#include <string.h>
 #include <avr/wdt.h>
 #include "ButtonUtility.h"
-#include "CommandUtility.h"
+#include "BootloadUtility.h"
 #include "Timer.h"
 
 int main(void)
 {
     uint8_t dataBuffer[259];
     uint16_t bufferCounter = 0;
-    uint8_t resetTimer = 0;
-    bool writeToFlash = false;
+    uint8_t communicationTimeout = 20;
+    bool writingToFlash = false;
     bool applicationExist = eeprom_read_byte(bootloaderStatusAddress) == uploadCompleteCode;
 
     enableTimer();
@@ -23,43 +24,47 @@ int main(void)
 
     // Continue to bootloader section.
     enableUSART();
-    startBootloaderIndicator(5);
+    startBootloaderIndicator();
 
     while (true)
     {
-        struct DataStruct dataStruct = usartReceive(dataBuffer);
+        struct DataElement dataStruct = usartReceive();
 
         if (dataStruct.dataReceived)
         {
             dataBuffer[bufferCounter] = dataStruct.data;
             ++bufferCounter;
 
-            if (dataStruct.data == '\0' && !writeToFlash)
+            if (dataStruct.data == '\0' && !writingToFlash)
             {
                 bufferCounter = 0;
-                writeToFlash = true;
-                executeCommand(dataBuffer);
+
+                if (!memcmp(dataBuffer, "RTU", 4))
+                {
+                    startBootloadProcess();
+                    communicationTimeout = 5;
+                    writingToFlash = true;
+                }
             }
             else if (bufferCounter == 259)
             {
                 bufferCounter = 0;
-                checkForPage(dataBuffer);
+                communicationTimeout = 5;
+                writeProgramDataToFlash(dataBuffer);
             }
-            
-            resetTimer = 0;
         }
 
-        if (checkOutputCompareFlag() && (applicationExist || writeToFlash))
+        // Check Timer Output Compare Flag.        
+        if (checkOutputCompareFlag() && (applicationExist || writingToFlash))
         {
+            --communicationTimeout;
             clearTimerFlag();
-            ++resetTimer;
         }
 
         // Reset Microcontroller.
-        if (resetTimer >= 20)
+        if (communicationTimeout == 0)
         {
-            stopBootloaderIndicator();
-            wdt_enable(WDTO_2S);
+            wdt_enable(WDTO_1S);
             while (true);
         }
     }

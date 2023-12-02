@@ -8,14 +8,14 @@
  * @brief sdfsdf
  * 
  */
-struct DataStruct
+struct DataElement
 {
    bool dataReceived;
    uint8_t data;
 };
 
-void enableUSART();
+void enableUSART(void);
 void usartTransmit(const uint8_t data[], uint8_t length);
-struct DataStruct usartReceive();
+struct DataElement usartReceive(void);
 
 #endif

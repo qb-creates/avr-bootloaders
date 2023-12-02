@@ -1,55 +1,56 @@
 #include <avr/boot.h>
 #include "BootloadUtility.h"
 
+// Bootloader Status
+uint8_t *bootloaderStatusAddress = (uint8_t *)46;
+const uint8_t uploadCompleteCode = 'c';
+const uint8_t uploadeFailedCode = 'w';
+
+// Command Responses
+const uint8_t pageAck[] = {'P', 'a', 'g', 'e'};
+const uint8_t ack[] = {'\r'};
+
+const uint8_t uploadCompleteByte = 0xFE;
+
 /**
- * @brief Configure 16-bit Timer1. 
+ * @brief Sets the bootloader indicator led frequency to 2 Hz.
  * 
+ */
+void startBootloadProcess(void)
+{
+    uint8_t ack[] = {0x1E, 0x97, 0x02, boot_lock_fuse_bits_get(GET_HIGH_FUSE_BITS), 'C', 'T', 'U'};
+
+    OCR1A = (F_CPU / (2 * 1024 * 2)) - 1;
+    eeprom_update_byte(bootloaderStatusAddress, uploadeFailedCode);
+    usartTransmit(ack, 7);
+}
+
+/**
+ * @brief Configure 16-bit Timer1.
+ *
  * @param frequency The frequency at which the connected indicator light will flash.
  * @note The timer is configured to be in output compare mode.
  * @note Indicator light should be connected to OC1A located on Pin B5.
  * @note OCR1A = (F_CPU / (2 * 1024 * frequency)) - 1;
  */
-void startBootloaderIndicator(uint8_t frequency)
+void startBootloaderIndicator(void)
 {
     DDRB |= _BV(PB5);
     TCCR1B = _BV(WGM12) | _BV(CS12) | _BV(CS10);
     TCCR1A = _BV(COM1A0);
-    setBootloaderIndicatorFrequency(frequency);
-}
-
-/**
- * @brief Stops the bootloader indicator output. Resets all Timer 1 registers back to 0x00;
- */
-void stopBootloaderIndicator(void)
-{
-    TCCR1B = 0x00;
-    TCCR1A = 0x00;
-    DDRB = 0x00;
-    PORTB = 0x00;
-}
-
-/**
- * @brief Set the bootloader indicator frequency
- * 
- * @param frequency The frequency at which the connected indicator light will flash.
- * @note OCR1A = (F_CPU / (2 * 1024 * frequency)) - 1;
- */
-void setBootloaderIndicatorFrequency(uint8_t frequency)
-{
-    OCR1A = (F_CPU / (2 * 1024 * frequency)) - 1;
+    OCR1A = (F_CPU / (2 * 1024 * 5)) - 1;
 }
 
 /**
  * @brief Writes the page data and returns the page status byte.
  *
  * @param buf Buffer that holds the page data. The buffer should be 259 bytes.
- * @return Returns the page status byte. 0xFE indicates that the last page of data has been sent
- * @note Page buffer should be 259 bytes. 
+ * @note Page buffer should be 259 bytes.
  * @note Bytes 1 and 2 is the page address.
  * @note Bytes 3 through 258 is the 256 bytes of program data that will be written.
  * @note Byte 259 is the page status byte.
  */
-uint8_t writeProgramDataToFlash(uint8_t *buf)
+void writeProgramDataToFlash(uint8_t *buf)
 {
     // Extract the page from the first two entries of the data array. Separates them into high and low bit.
     uint16_t pageNumberH = (*buf++) << 8;
@@ -58,34 +59,37 @@ uint8_t writeProgramDataToFlash(uint8_t *buf)
     // Get the page address by multiplying the page size times the page number.
     uint16_t pageAddress = (pageNumberH + pageNumberL) * SPM_PAGESIZE;
 
-    // Wait for any active eeprom writes to complete.
     eeprom_busy_wait();
-
-    // Erase memory page.
     boot_page_erase(pageAddress);
-
-    // Wait until the memory is erased.
     boot_spm_busy_wait();
 
     for (uint16_t i = 0; i < SPM_PAGESIZE; i += 2)
     {
-        // Get program data word and set up as little-endia.
-        uint16_t w = *buf++;
-        w += (*buf++) << 8;
+        // Get program data word and set up as little-endian.
+        uint16_t word = *buf++;
+        word += (*buf++) << 8;
 
         // Load page temp buffers
-        boot_page_fill(pageAddress + i, w);
+        boot_page_fill(pageAddress + i, word);
     }
 
-    // Store buffer in flash page.
     boot_page_write(pageAddress);
-
-    // Wait until the memory is written.
     boot_spm_busy_wait();
-
-    // Enable Read While Write Section
     boot_rww_enable();
 
-    // Return the page status byte;
-    return *buf;
+    // Acknowledge that the 259 bytes of data were received
+    for (int i = 0; i < 259; ++i)
+    {
+        usartTransmit(ack, 1);
+    }
+
+    usartTransmit(pageAck, 4);
+
+    // Check page status byte.
+    if (*buf == uploadCompleteByte)
+    {
+        eeprom_update_byte(bootloaderStatusAddress, uploadCompleteCode);
+        wdt_enable(WDTO_1S);
+        while (1);
+    }
 }

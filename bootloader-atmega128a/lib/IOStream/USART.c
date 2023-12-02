@@ -8,9 +8,9 @@
  * @note 1 stop bit
  * @note No parity
  * @note Asynchronous operation
- * @note Using a clock frequency of 7372800 Hz, set UBRR1 to 3 for a baud rate of 112.5kbps
+ * @note Using a clock frequency of 7372800 Hz, set UBRR1 to 3 for a baud rate of 115.2kbps
  */
-void enableUSART()
+void enableUSART(void)
 {
     UBRR1L = 3;
     UCSR1B = _BV(RXEN1) | _BV(TXEN1);
@@ -38,9 +38,9 @@ void usartTransmit(const uint8_t data[], uint8_t length)
  * 
  * @return Returns the
  */
-struct DataStruct usartReceive()
+struct DataElement usartReceive(void)
 {
-    struct DataStruct dataStruct;
+    struct DataElement dataStruct;
     dataStruct.dataReceived = false;
     
     // If there is unread data in the receive buffer 
