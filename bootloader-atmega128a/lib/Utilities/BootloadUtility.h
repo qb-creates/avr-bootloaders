@@ -10,8 +10,7 @@ const uint8_t uploadeFailedCode;
 uint8_t *bootloaderStatusAddress;
 
 void startBootloadProcess(void);
-void startBootloaderIndicator(void);
-void stopBootloaderIndicator(void);
+void startBootloadIndicator(void);
 void writeProgramDataToFlash(uint8_t *buf);
 
 #endif

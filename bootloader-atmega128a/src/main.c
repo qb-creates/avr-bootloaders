@@ -7,6 +7,10 @@
 
 int main(void)
 {
+    // Clear watchdog reset flag and disable watchdog timer.
+    MCUCSR &= ~(1 << WDRF);
+    wdt_disable();
+    
     uint8_t dataBuffer[259];
     uint16_t bufferCounter = 0;
     uint8_t communicationTimeout = 20;
@@ -15,7 +19,7 @@ int main(void)
 
     enableTimer();
 
-    // Return to application section
+    // Return to application section.
     if (applicationExist && !pressAndHold(&PINE, PE4, 5))
     {
         disableTimer();
@@ -24,36 +28,10 @@ int main(void)
 
     // Continue to bootloader section.
     enableUSART();
-    startBootloaderIndicator();
+    startBootloadIndicator();
 
     while (true)
     {
-        struct DataElement dataStruct = usartReceive();
-
-        if (dataStruct.dataReceived)
-        {
-            dataBuffer[bufferCounter] = dataStruct.data;
-            ++bufferCounter;
-
-            if (dataStruct.data == '\0' && !writingToFlash)
-            {
-                bufferCounter = 0;
-
-                if (!memcmp(dataBuffer, "RTU", 4))
-                {
-                    startBootloadProcess();
-                    communicationTimeout = 5;
-                    writingToFlash = true;
-                }
-            }
-            else if (bufferCounter == 259)
-            {
-                bufferCounter = 0;
-                communicationTimeout = 5;
-                writeProgramDataToFlash(dataBuffer);
-            }
-        }
-
         // Check Timer Output Compare Flag.        
         if (checkOutputCompareFlag() && (applicationExist || writingToFlash))
         {
@@ -66,6 +44,38 @@ int main(void)
         {
             wdt_enable(WDTO_1S);
             while (true);
+        }
+
+        // Check for data in the usart receive buffers.
+        struct DataElement dataStruct = usartReceive();
+
+        if (!dataStruct.dataReceived)
+            continue;
+
+        dataBuffer[bufferCounter] = dataStruct.data;
+        ++bufferCounter;
+
+        // Check the data buffer for the "RTU\0" command.
+        if (dataStruct.data == '\0' && !writingToFlash)
+        {
+            bufferCounter = 0;
+
+            if (!memcmp(dataBuffer, "RTU", 4))
+            {
+                communicationTimeout = 5;
+                writingToFlash = true;
+                startBootloadProcess();
+            }
+
+            continue;
+        }
+
+        // Check if the data buffer has been completely filled with page data
+        if (bufferCounter == 259)
+        {
+            bufferCounter = 0;
+            communicationTimeout = 5;
+            writeProgramDataToFlash(dataBuffer);
         }
     }
 }

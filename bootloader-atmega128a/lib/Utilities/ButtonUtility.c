@@ -10,8 +10,10 @@
  * @param holdTime The ammount of time the button must be held in seconds.
  * @return Returns true if the button was held for the specified ammount of time. Returns false if the button was released before the specified amount of time has passed.
  * 
- * @note The data register is configured to enable the pull up resistor for the specified pin. Button must be connected to ground.
- * @note Bootloader timer is configured to trigger the output compare flag every 1 second.
+ * @attention - The data register is configured to enable the pull up resistor for the specified pin. Button must be shorted to ground 
+ * to trigger the input.
+ * @attention - Bootloader timer is configured to trigger the output compare flag every 1 second.
+ * 
  */
 bool pressAndHold(volatile uint8_t *inputPins, uint8_t pin, uint8_t holdTime)
 {

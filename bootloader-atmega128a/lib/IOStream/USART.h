@@ -5,7 +5,10 @@
 #include <stdint.h>
 
 /**
- * @brief sdfsdf
+ * @brief USART data element.
+ * 
+ * @note - Indicates if data was successfully read from the usart receive buffers.
+ * @note - Holds the data read from the usart receive buffers.
  * 
  */
 struct DataElement

@@ -13,11 +13,13 @@ const uint8_t ack[] = {'\r'};
 const uint8_t uploadCompleteByte = 0xFE;
 
 /**
- * @brief Sets the bootloader indicator led frequency to 2 Hz.
+ * @brief Starts the bootload process. The devices signature, high fuse bits, and 'CTU' is
+ * sent back to the server.
  * 
  */
 void startBootloadProcess(void)
 {
+    // Store the devices signature, high fuse bits, and "CTU" in an array.
     uint8_t ack[] = {0x1E, 0x97, 0x02, boot_lock_fuse_bits_get(GET_HIGH_FUSE_BITS), 'C', 'T', 'U'};
 
     OCR1A = (F_CPU / (2 * 1024 * 2)) - 1;
@@ -28,12 +30,16 @@ void startBootloadProcess(void)
 /**
  * @brief Configure 16-bit Timer1.
  *
- * @param frequency The frequency at which the connected indicator light will flash.
- * @note The timer is configured to be in output compare mode.
- * @note Indicator light should be connected to OC1A located on Pin B5.
- * @note OCR1A = (F_CPU / (2 * 1024 * frequency)) - 1;
+ * @note - Output compare mode.
+ * @note - Indicator light should be connected to OC1A located on Pin B5.
+ * @note - OC1A toggles on each output compare match.
+ * @note - OCR1A = (F_CPU / (2 * 1024 * frequency)) - 1;
+ * 
+ * @attention A clock frequency of 7.3728MHz was used during the development of this bootloader.
+ * Update F_CPU and the value of the 'frequency' variable to get the desired indicator flash frequency.
+ * 
  */
-void startBootloaderIndicator(void)
+void startBootloadIndicator(void)
 {
     DDRB |= _BV(PB5);
     TCCR1B = _BV(WGM12) | _BV(CS12) | _BV(CS10);
@@ -45,10 +51,12 @@ void startBootloaderIndicator(void)
  * @brief Writes the page data and returns the page status byte.
  *
  * @param buf Buffer that holds the page data. The buffer should be 259 bytes.
- * @note Page buffer should be 259 bytes.
- * @note Bytes 1 and 2 is the page address.
- * @note Bytes 3 through 258 is the 256 bytes of program data that will be written.
- * @note Byte 259 is the page status byte.
+ * 
+ * @note - Page buffer should be 259 bytes.
+ * @note - Bytes 1 and 2 indicate the page address.
+ * @note - Bytes 3 through 258 are the 256 bytes of program data that will be written.
+ * @note - Byte 259 indicates the page status byte.
+ * 
  */
 void writeProgramDataToFlash(uint8_t *buf)
 {
@@ -90,6 +98,8 @@ void writeProgramDataToFlash(uint8_t *buf)
     {
         eeprom_update_byte(bootloaderStatusAddress, uploadCompleteCode);
         wdt_enable(WDTO_1S);
-        while (1);
+
+        // Loop until the microcontroller resets.
+        while (true);
     }
 }
