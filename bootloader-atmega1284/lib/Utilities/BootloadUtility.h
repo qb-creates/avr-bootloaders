@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <USART.h>
+#include <avr/wdt.h>
 
 const uint8_t uploadCompleteByte;
 const uint8_t uploadCompleteCode;

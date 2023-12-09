@@ -1,6 +1,5 @@
 #include <avr/eeprom.h>
 #include <string.h>
-#include <avr/wdt.h>
 #include "ButtonUtility.h"
 #include "BootloadUtility.h"
 
@@ -16,7 +15,7 @@ int main(void)
     bool applicationExist = eeprom_read_byte(bootloaderStatusAddress) == uploadCompleteCode;
 
     // Return to application section.
-    if (applicationExist && !pressAndHold(&PIND, PD2, 5000))
+    if (applicationExist && !pressAndHold(&PIND, PD2, 4000))
     {
         asm("jmp 0x000");
     }
@@ -24,11 +23,6 @@ int main(void)
     // Continue to bootloader section.
     enableUSART();
     startBootloadIndicator();
-
-    if (applicationExist)
-    {
-        wdt_enable(WDTO_8S);
-    }
     
     while (true)
     {
@@ -50,7 +44,7 @@ int main(void)
             if (!memcmp(dataBuffer, "RTU", 4))                
             {
                 writeToFlash = true;
-                wdt_enable(WDTO_4S);
+                wdt_enable(WDTO_8S);
                 startBootloadProcess();
             }
 

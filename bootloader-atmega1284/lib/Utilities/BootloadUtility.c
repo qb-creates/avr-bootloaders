@@ -90,6 +90,7 @@ void writePageDataToFlash(uint8_t *buf)
 
     for (int i = 0; i < 259; ++i)
     {
+        wdt_reset();
         usartTransmit(ack, 1);
     }
 
@@ -98,5 +99,7 @@ void writePageDataToFlash(uint8_t *buf)
     if (*buf == uploadCompleteByte)
     {
         eeprom_update_byte(bootloaderStatusAddress, uploadCompleteCode);
+        wdt_disable();
+        wdt_enable(WDTO_1S);
     }
 }
