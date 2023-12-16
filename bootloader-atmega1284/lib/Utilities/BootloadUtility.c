@@ -10,7 +10,8 @@ const uint8_t uploadeFailedCode = 'w';
 const uint8_t pageAck[] = {'P', 'a', 'g', 'e'};
 const uint8_t ack[] = {'\r'};
 
-const uint8_t uploadCompleteByte = 0xFE;
+// Page status
+const uint8_t lastPageIndicator = 0xFE;
 
 /**
  * @brief Starts the bootload process. The devices signature, high fuse bits, and 'CTU' is
@@ -51,14 +52,14 @@ void startBootloadIndicator(void)
 }
 
 /**
- * @brief Writes the page data and returns the page status byte.
+ * @brief Writes the page data to flash.
  *
  * @param buf Buffer that holds the page data. The buffer should be 259 bytes.
  * 
  * @note - Page buffer should be 259 bytes.
  * @note - Bytes 1 and 2 indicate the page address.
  * @note - Bytes 3 through 258 are the 256 bytes of program data that will be written.
- * @note - Byte 259 indicates the page status byte.
+ * @note - Byte 259 is the page status byte.
  * 
  */
 void writePageDataToFlash(uint8_t *buf)
@@ -76,11 +77,11 @@ void writePageDataToFlash(uint8_t *buf)
 
     for (uint16_t i = 0; i < SPM_PAGESIZE; i += 2)
     {
-        // Get program data word and set up as little-endia.
+        // Get program data word and set up as little-endian.
         uint16_t w = *buf++;
         w += (*buf++) << 8;
 
-        // Load page temp buffers
+        // Load page temp buffers.
         boot_page_fill(pageAddress + i, w);
     }
 
@@ -96,7 +97,8 @@ void writePageDataToFlash(uint8_t *buf)
 
     usartTransmit(pageAck, 4);
 
-    if (*buf == uploadCompleteByte)
+    // Upload is complete if the last byte in the buffer is equal to the lastPageByte.
+    if (*buf == lastPageIndicator)
     {
         eeprom_update_byte(bootloaderStatusAddress, uploadCompleteCode);
         wdt_disable();

@@ -5,7 +5,7 @@
 #include <USART.h>
 #include <avr/wdt.h>
 
-const uint8_t uploadCompleteByte;
+const uint8_t lastPageIndicator;
 const uint8_t uploadCompleteCode;
 const uint8_t uploadeFailedCode;
 uint8_t *bootloaderStatusAddress;
