@@ -55,7 +55,7 @@ void startBootloadIndicator(void)
  * @note - Page buffer should be 259 bytes.
  * @note - Bytes 1 and 2 indicate the page address.
  * @note - Bytes 3 through 258 are the 256 bytes of program data that will be written.
- * @note - Byte 259 indicates the page status byte.
+ * @note - Byte 259 indicates the page status indicator.
  * 
  */
 void writeProgramDataToFlash(uint8_t *buf)
@@ -64,7 +64,7 @@ void writeProgramDataToFlash(uint8_t *buf)
     uint16_t pageNumberH = (*buf++) << 8;
     uint16_t pageNumberL = *buf++;
 
-    // Get the page address by multiplying the page size times the page number.
+    // Get the page address by multiplying the page size by the page number.
     uint16_t pageAddress = (pageNumberH + pageNumberL) * SPM_PAGESIZE;
 
     eeprom_busy_wait();
