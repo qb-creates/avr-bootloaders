@@ -38,7 +38,19 @@ To properly configure the linker options and other PlatformIO settings, follow t
 - Utilizes only 10 bytes of SRAM.
 
 ## Getting Started
-
 1. Clone this repository:
    ```bash
    git clone https://github.com/your-username/atmega1284-bootloader.git
+   
+## Bootloader Mode
+When there isn't any program data in the program section of the flash, the microcontroller will automatically enter bootloader mode. A LED connected to pin D6 will flash to indicate that that the microcontroller is in bootloader mode. At this point, you can use the <a href="https://github.com/qb-creates/qbdude">QB.DUDE Utility</a> to upload program data to the microcontroller.  The indicator led will flash slower as data is being sent to the microcontroller. After receiving all of the data the microcontroller will reset and start the program sectoin. To re-enter bootloader mode after a program has been uploaded, follow these steps:
+
+1. Reset the microcontroller by pulling the reset pin to ground.
+2. Pull PD2 low.
+3. Set the reset pin back to high while PD2 is still low.
+4. After 4 seconds, the microcontroller will enter bootloader mode. At this point PD2 can be set high again
+
+This process can be easily achieved by adding push buttons to the reset pin (pulls it low when pressed) and pin D2 (pulls it low when pressed). To exit bootloader mode after a successful program upload, simply reset the microcontroller.
+
+If data upload fails due to power loss or communication issues, the microcontroller will timeout and stay in bootloader mode until a new program is successfully uploaded.
+
