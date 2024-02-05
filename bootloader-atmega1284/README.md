@@ -1,26 +1,57 @@
 # ATmega1284 Bootloader
 This repository contains a custom bootloader designed for ATmega1284 microcontrollers, enabling easy program uploads using USART communication.
-
-## 1. Development Environment<a name="software"></a>
+      
+## Development Environment<a name="development"></a>
 - Developed using VS Code with the PlatformIO extension: https://docs.platformio.org/en/latest/what-is-platformio.html
 - AVRDUDE (Flash Uploader): https://github.com/avrdudes/avrdude
 
-## Getting Started
-1. Clone this repository:
+## Communication Protocol<a name="communication"></a>
+
+- USART communication is used for bootloader operation.
+- USART0 is utilized for ATmega1284.
+
+## Flash Size and SRAM Usage<a name="size"></a>
+
+- The bootloader is less than 1024 bytes in size.
+- Utilizes only 10 bytes of SRAM.
+
+<h2> Table of Contents</h2>
+
+1. [Enable BOOTRST Vector](#enableboot)
+    - [Fuse Bit Configuration](#fusebits)
+2. [Installing VS Code and PlatformIO](#installing)
+2. [PlatformIO Environment Settings](#environment)
+3. [Bootloader Mode](#bootmode)
+
+## 1. Enable BOOTRST Vector<a name="enableboot"></a>
+
+The BOOTRST vector allows the microcontroller to start execution from the bootloader section upon a reset. To utilize the BOOTRST vector on your ATmega1284 microcontroller, ensure that the relevant fuse bits are set correctly. This is neccessary for the bootloader to work properly.
+
+### Fuse Bit Configuration<a name="fusebits"></a>
+
+- **BOOTSZ**: Depending on the bootloader size requirement, set the `BOOTSZ` fuse bits accordingly. This bootloader is less than 1024 Bytes in size.
+- **BOOTRST**: Enable the `BOOTRST` fuse bit to activate the BOOTRST vector. This ensures that the microcontroller begins execution from the bootloader section upon a reset.
+
+You can use tools like <a href="https://github.com/avrdudes/avrdude">avrdude</a> to set the fuse bits. Here's an example command:
+
+```bash
+avrdude -c <programmer_type> -p <your_microcontroller> -U lfuse:w:0xEF:m -U hfuse:w:0xD8:m -U efuse:w:0xFF:m
+```
+Refer to the ATmega1284 datasheet for the specific fuse bit values. 
+
+## 2. Installing VS Code and PlatformIO<a name="installing"></a>
+1. Install <a href="https://code.visualstudio.com/download">VS Code</a>.
+2. Launch VS Code and locate the extensions tabe on the left toolbar.
+3. Install the PlatformIO and C/C++ extensions
+4. Clone this repository:
    ```bash
-   git clone https://github.com/your-username/atmega1284-bootloader.git
-   
-## Configuration Tips
+   git clone https://github.com/qb-creates/avr-bootloaders
+5. Navigate to the bootloader-atmega1284 directory.
+6. Right click anywhere in the directory and select open with VS Code.
 
-1. **Fuse Bits Configuration:**
-   - Configure fuse bits to enable the boot reset vector.
-   - Choose the desired boot flash section size. The bootloader can run on the 512-word boot flash section.
-  
-## PlatformIO Environment Settings
+## 3. PlatformIO Environment Settings<a name="environment"></a>
 
-The [env] section of a platformio.ini file is used to define environments or build configurations for your project. In this section, you can specify the CPU frequency and configure linker options to set the starting address for the code to the address associated with your microcontroller's BOOTSZ fuse bits configuration.
-
-<br>
+The [env] section of a platformio.ini file is used to define environments or build configurations for your project. It can be found in the root directory of the project. In this section, you can specify the CPU frequency and configure linker options to set the starting address for the code to the address associated with your microcontroller's BOOTSZ fuse bits configuration. These options need to be set before we build the project
 
 To properly configure the environment settings and linker options, follow these steps:
 
@@ -36,18 +67,15 @@ To properly configure the environment settings and linker options, follow these 
    board_build.f_cpu = <cpu_frequency>
    build_flags =
      -Wl,-section-start=.text=<starting_address>
+<br>
 
-## Communication
+After setting the options, use `ctrl + shift + b` to build the solution and generate the hex file. You can use tools like <a href="https://github.com/avrdudes/avrdude">avrdude</a> to upload the bootloader to the microcontroller. Here's an example command:
 
-- USART communication is used for bootloader operation.
-- USART0 is utilized for ATmega1284.
+```bash
+avrdude -c <programmer_type> -p <your_microcontroller> -P PORT -b BAUD_RATE -U flash:w:<path_to_hex_file>
+```
 
-## Size and SRAM Usage
-
-- The bootloader is less than 1024 bytes in size.
-- Utilizes only 10 bytes of SRAM.
-   
-## Bootloader Mode
+## 4. Bootloader Mode<a name="bootmode"></a>
 When there isn't any program data in the program section of the flash, the microcontroller will automatically enter bootloader mode. A LED connected to pin D6 will flash to indicate that that the microcontroller is in bootloader mode. At this point, you can use the <a href="https://github.com/qb-creates/qbdude">QB.DUDE Utility</a> to upload program data to the microcontroller.  The indicator led will flash slower as data is being sent to the microcontroller. After receiving all of the data the microcontroller will reset and start the program sectoin. To re-enter bootloader mode after a program has been uploaded, follow these steps:
 
 1. Reset the microcontroller by pulling the reset pin to ground.
