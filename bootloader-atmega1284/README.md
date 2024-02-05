@@ -5,27 +5,37 @@ This repository contains a custom bootloader designed for ATmega1284 microcontro
 - Developed using VS Code with the PlatformIO extension: https://docs.platformio.org/en/latest/what-is-platformio.html
 - AVRDUDE (Flash Uploader): https://github.com/avrdudes/avrdude
 
+## Getting Started
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/your-username/atmega1284-bootloader.git
+   
 ## Configuration Tips
 
 1. **Fuse Bits Configuration:**
    - Configure fuse bits to enable the boot reset vector.
    - Choose the desired boot flash section size. The bootloader can run on the 512-word boot flash section.
   
-## Linker Options and Boot Flash Section Configuration
-Make sure that the start address for the hex file is set to the address associated with the microcontrollers configured boot flash section.
-To properly configure the linker options and other PlatformIO settings, follow these steps:
+## PlatformIO Environment Settings
 
-1. Open the `platformio.ini` file in the root directory of your PlatformIO project.
+The [env] section of a platformio.ini file is used to define environments or build configurations for your project. In this section, you can specify the CPU frequency and configure linker options to set the starting address for the code to the address associated with your microcontroller's BOOTSZ fuse bits configuration.
+
+<br>
+
+To properly configure the environment settings and linker options, follow these steps:
+
+1. Open the `platformio.ini` file in the root directory of the PlatformIO project.
 2. Add a `[env]` section or modify the existing `[env]` section for ATmega1284 (e.g., `[env:atmega1284]`).
-3. Use the `build_flags` option to specify the linker options. For setting the start address of the hex file, use the `-Wl,-Ttext=address` option.
+3. Use the `build_flags` option to specify the linker options. For setting the start address of the hex file, use the `-Wl,-section-start=.text=<starting_address>` option. 
+4. Use the `board_build.f_cpu` option to specify the cpu frequency. 
 
    ```ini
    [env:atmega1284]
    platform = atmelavr
    board = ATmega1284
-   board_build.f_cpu = ...
+   board_build.f_cpu = <cpu_frequency>
    build_flags =
-     -Wl,-section-start=.text=<Address of the boot flash section in bytes not words>
+     -Wl,-section-start=.text=<starting_address>
 
 ## Communication
 
@@ -36,11 +46,6 @@ To properly configure the linker options and other PlatformIO settings, follow t
 
 - The bootloader is less than 1024 bytes in size.
 - Utilizes only 10 bytes of SRAM.
-
-## Getting Started
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/your-username/atmega1284-bootloader.git
    
 ## Bootloader Mode
 When there isn't any program data in the program section of the flash, the microcontroller will automatically enter bootloader mode. A LED connected to pin D6 will flash to indicate that that the microcontroller is in bootloader mode. At this point, you can use the <a href="https://github.com/qb-creates/qbdude">QB.DUDE Utility</a> to upload program data to the microcontroller.  The indicator led will flash slower as data is being sent to the microcontroller. After receiving all of the data the microcontroller will reset and start the program sectoin. To re-enter bootloader mode after a program has been uploaded, follow these steps:
