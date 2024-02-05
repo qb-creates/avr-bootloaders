@@ -1,16 +1,16 @@
 # ATmega1284 Bootloader
-This repository contains a custom bootloader designed for ATmega1284 microcontrollers, enabling easy program uploads using USART communication.
+This repository contains a custom bootloader designed for ATmega1284 microcontrollers, enabling easy program uploads using USART communication. The design of this bootloader was intended for compatibility with the <a href="https://github.com/qb-creates/qbdude">QB.DUDE Utility</a>.
       
-## Development Environment<a name="development"></a>
+### Development Environment<a name="development"></a>
 - Developed using VS Code with the PlatformIO extension: https://docs.platformio.org/en/latest/what-is-platformio.html
 - AVRDUDE (Flash Uploader): https://github.com/avrdudes/avrdude
 
-## Communication Protocol<a name="communication"></a>
+### Communication Protocol<a name="communication"></a>
 
 - USART communication is used for bootloader operation.
 - USART0 is utilized for ATmega1284.
 
-## Flash Size and SRAM Usage<a name="size"></a>
+### Flash Size and SRAM Usage<a name="size"></a>
 
 - The bootloader is less than 1024 bytes in size.
 - Utilizes only 10 bytes of SRAM.
