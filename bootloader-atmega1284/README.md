@@ -39,6 +39,8 @@ avrdude -c <programmer_type> -p <your_microcontroller> -U lfuse:w:0xEF:m -U hfus
 ```
 Refer to the ATmega1284 datasheet for the specific fuse bit values. 
 
+<br>
+
 ## 2. Installing VS Code and PlatformIO<a name="installing"></a>
 1. Install <a href="https://code.visualstudio.com/download">VS Code</a>.
 2. Launch VS Code and locate the extensions tabe on the left toolbar.
@@ -48,6 +50,8 @@ Refer to the ATmega1284 datasheet for the specific fuse bit values.
    git clone https://github.com/qb-creates/avr-bootloaders
 5. Navigate to the bootloader-atmega1284 directory.
 6. Right click anywhere in the directory and select open with VS Code.
+
+<br>
 
 ## 3. PlatformIO Environment Settings<a name="environment"></a>
 
@@ -74,6 +78,8 @@ After setting the options, use `ctrl + shift + b` to build the solution and gene
 ```bash
 avrdude -c <programmer_type> -p <your_microcontroller> -P PORT -b BAUD_RATE -U flash:w:<path_to_hex_file>
 ```
+
+<br>
 
 ## 4. Bootloader Mode<a name="bootmode"></a>
 When there isn't any program data in the program section of the flash, the microcontroller will automatically enter bootloader mode. A LED connected to pin D6 will flash to indicate that that the microcontroller is in bootloader mode. At this point, you can use the <a href="https://github.com/qb-creates/qbdude">QB.DUDE Utility</a> to upload program data to the microcontroller.  The indicator led will flash slower as data is being sent to the microcontroller. After receiving all of the data the microcontroller will reset and start the program sectoin. To re-enter bootloader mode after a program has been uploaded, follow these steps:
