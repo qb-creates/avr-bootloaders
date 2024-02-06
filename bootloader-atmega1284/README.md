@@ -1,5 +1,5 @@
 # ATmega1284 Bootloader
-This repository contains a custom bootloader designed for ATmega1284 microcontrollers, enabling easy program uploads using USART communication. The design of this bootloader was intended for compatibility with the <a href="https://github.com/qb-creates/qbdude">QB.DUDE Utility</a>.
+This repository contains a custom bootloader designed for the ATmega1284 microcontroller, enabling easy program uploads using USART communication. The design of this bootloader was intended for compatibility with the <a href="https://github.com/qb-creates/qbdude">QB.DUDE Utility</a>.
       
 ### Development Environment<a name="development"></a>
 - Developed using VS Code with the PlatformIO extension: https://docs.platformio.org/en/latest/what-is-platformio.html
@@ -29,28 +29,35 @@ The BOOTRST vector allows the microcontroller to start execution from the bootlo
 
 ### Fuse Bit Configuration<a name="fusebits"></a>
 
-- **BOOTSZ**: Depending on the bootloader size requirement, set the `BOOTSZ` fuse bits accordingly. This bootloader is less than 1024 Bytes in size.
+- **BOOTSZ**: Depending on the bootloader size requirement, set the `BOOTSZ` fuse bits accordingly. This bootloader is less than 1024 Bytes in size so any combination of BOOTSZ will work.
 - **BOOTRST**: Enable the `BOOTRST` fuse bit to activate the BOOTRST vector. This ensures that the microcontroller begins execution from the bootloader section upon a reset.
 
-You can use tools like <a href="https://github.com/avrdudes/avrdude">avrdude</a> to set the fuse bits. Here's an example command:
+You can use tools like <a href="https://github.com/avrdudes/avrdude">avrdude</a> to set the fuse bits. Refer to the ATmega1284 datasheet for the specific fuse bit values. 
+<br>
+
+Example command:
 
 ```bash
-avrdude -c <programmer_type> -p <your_microcontroller> -U lfuse:w:0xEF:m -U hfuse:w:0xD8:m -U efuse:w:0xFF:m
+avrdude -c <programmer> -p <part_number> -U lfuse:w:<low_bits>:m -U hfuse:w:<high_bits>:m -U efuse:w:<extended_bits>:m
 ```
-Refer to the ATmega1284 datasheet for the specific fuse bit values. 
 
 <br>
 
 ## 2. Installing VS Code and PlatformIO<a name="installing"></a>
 1. Install <a href="https://code.visualstudio.com/download">VS Code</a>.
-2. Launch VS Code and locate the extensions tabe on the left toolbar.
-3. Install the PlatformIO and C/C++ extensions
-4. Clone this repository:
+2. Open VS Code
+3. Go to the Extensions view by clicking on the square icon on the sidebar or by pressing `ctrl + shift + x`.
+4. Install the PlatformIO and C/C++ extensions
+5. Clone this repository:
    ```bash
    git clone https://github.com/qb-creates/avr-bootloaders
-5. Navigate to the bootloader-atmega1284 directory.
-6. Right click anywhere in the directory and select open with VS Code.
+6. Navigate to the bootloader-atmega1284 directory.
+7. Right click anywhere in the directory and select open with VS Code.
 
+### Additional Notes:
+- After installing the PlatformIO extension, you'll need to follow its setup wizard to configure your environment and install necessary dependencies.
+- Make sure you have a working C/C++ compiler installed on your system for the C/C++ extension to work properly. Depending on your platform, you may need to install GCC, Clang, or another compiler toolchain.
+  
 <br>
 
 ## 3. PlatformIO Environment Settings<a name="environment"></a>
@@ -76,7 +83,7 @@ To properly configure the environment settings and linker options, follow these 
 After setting the options, use `ctrl + shift + b` to build the solution and generate the hex file. You can use tools like <a href="https://github.com/avrdudes/avrdude">avrdude</a> to upload the bootloader to the microcontroller. Here's an example command:
 
 ```bash
-avrdude -c <programmer_type> -p <your_microcontroller> -P PORT -b BAUD_RATE -U flash:w:<path_to_hex_file>
+avrdude -c <programmer> -p <part_number> -P PORT -b BAUD_RATE -U flash:w:<path_to_hex_file>
 ```
 
 <br>
