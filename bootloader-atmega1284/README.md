@@ -12,8 +12,8 @@ This repository contains a custom bootloader designed for the ATmega1284 microco
 
 ### Flash Size and SRAM Usage<a name="size"></a>
 
-- The bootloader is less than 1024 bytes in size.
-- Utilizes only 10 bytes of SRAM.
+- The bootloader size is 976 bytes.
+- Uses only 10 bytes of SRAM.
 
 <h2> Table of Contents</h2>
 
@@ -80,7 +80,10 @@ To properly configure the environment settings and linker options, follow these 
      -Wl,-section-start=.text=<starting_address>
 <br>
 
-After setting the options, use `ctrl + shift + b` to build the solution and generate the hex file. You can use tools like <a href="https://github.com/avrdudes/avrdude">avrdude</a> to upload the bootloader to the microcontroller. Here's an example command:
+After setting the options, use `ctrl + shift + b` to build the solution and generate the hex file. You can use tools like <a href="https://github.com/avrdudes/avrdude">avrdude</a> to upload the bootloader to the microcontroller. The hex file will be generated in the `.pio/biuld/ATmega1284 directory`. It will be called `firmware.hex`
+<br>
+
+Example command:
 
 ```bash
 avrdude -c <programmer> -p <part_number> -P PORT -b BAUD_RATE -U flash:w:<path_to_hex_file>
@@ -96,7 +99,7 @@ When there isn't any program data in the program section of the flash, the micro
 3. Set the reset pin back to high while PD2 is still low.
 4. After 4 seconds, the microcontroller will enter bootloader mode. At this point PD2 can be set high again
 
-This process can be easily achieved by adding push buttons to the reset pin (pulls it low when pressed) and pin D2 (pulls it low when pressed). To exit bootloader mode after a successful program upload, simply reset the microcontroller.
+This process can be easily achieved by adding push buttons to the reset pin (pulls it low when pressed) and pin D2 (pulls it low when pressed). To exit bootloader simply reset the microcontroller. The microcontroller will then run the program that is currently loaded in it's program flash section. If no program is loaded, the microcontroller will stay in bootloader mode.
 
-If data upload fails due to power loss or communication issues, the microcontroller will timeout and stay in bootloader mode until a new program is successfully uploaded.
+If the data upload fails due to power loss or communication issues, the microcontroller will timeout and stay in bootloader mode until a new program is successfully uploaded.
 
