@@ -13,3 +13,8 @@ To use these bootloaders with QB.DUDE, follow these steps:
 1. Clone this repository: `git clone https://github.com/qb-creates/avr-bootloaders.git`
 2. Choose the desired bootloader project directory based on your AVR microcontroller part number.
 3. Follow the instructions in the respective bootloader's README for installation and usage.
+
+## Supported Microcontrollers
+Select a microcontroller to see it's README:
+- <a href="https://github.com/qb-creates/avr-bootloaders/tree/main/bootloader-atmega128a">ATmega128</a>
+- <a href="https://github.com/qb-creates/avr-bootloaders/tree/main/bootloader-atmega1284">ATmega1284</a>
