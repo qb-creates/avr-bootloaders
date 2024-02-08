@@ -20,10 +20,10 @@ This repository contains a custom bootloader designed for the ATmega128 microcon
 1. [Enable BOOTRST Vector](#enableboot)
     - [Fuse Bit Configuration](#fusebits)
 2. [Installing VS Code and PlatformIO](#installing)
-2. [PlatformIO Environment Settings](#environment)
-3. [Bootloader Mode](#bootmode)
-
-## 1. Enable BOOTRST Vector<a name="enableboot"></a>
+3. [PlatformIO Environment Settings](#environment)
+4. [Bootloader Mode](#bootmode)
+5. [Special Notes](#notes)
+   - [EEPROM Address 0x46](#eeprom)
 
 The BOOTRST vector allows the microcontroller to start execution from the bootloader section upon a reset. To utilize the BOOTRST vector on your ATmega128 microcontroller, ensure that the relevant fuse bits are set correctly. This is neccessary for the bootloader to work properly.
 
@@ -102,3 +102,14 @@ When there isn't any program data in the program section of the flash, the micro
 This process can be easily achieved by adding push buttons to the reset pin (pulls it low when pressed) and pin D2 (pulls it low when pressed). To exit bootloader simply reset the microcontroller. The microcontroller will then run the program that is currently loaded in it's program flash section. If no program is loaded, the microcontroller will stay in bootloader mode.
 
 If the data upload fails due to power loss or communication issues, the microcontroller will timeout and stay in bootloader mode until a new program is successfully uploaded.
+
+<br>
+
+## 5. Special Notes<a name="notes"></a> 
+### EEPROM Address 0x46<a name="eeprom"></a>
+- EEPROM address 0x46 is reserved for storing information about the success or failure of a program update using the QB.DUDE utility.
+- The bootloader checks this address upon startup:
+  - If a 'c' is stored at this address, indicating a successful update, the user's program will be started.
+  - If a 'w' is stored at this address, indicating a failed update, the microcontroller will remain in bootloader mode until a successful program upload is performed using QB.DUDE.
+- It's crucial not to overwrite the data stored at this address with user programs, as it could lead to adverse effects.
+- In case the data at this address is accidentally overwritten, it's recommended to upload the bootloader again to the microcontroller using avrdude.
