@@ -8,7 +8,6 @@ const uint8_t uploadeFailedCode = 'w';
 
 // Command Responses
 const uint8_t pageAck[] = {'P', 'a', 'g', 'e'};
-const uint8_t ack[] = {'\r'};
 
 const uint8_t uploadCompleteByte = 0xFE;
 
@@ -84,12 +83,6 @@ void writeProgramDataToFlash(uint8_t *buf)
     boot_page_write(pageAddress);
     boot_spm_busy_wait();
     boot_rww_enable();
-
-    // Acknowledge that the 259 bytes of data were received
-    for (int i = 0; i < 259; ++i)
-    {
-        usartTransmit(ack, 1);
-    }
 
     usartTransmit(pageAck, 4);
 

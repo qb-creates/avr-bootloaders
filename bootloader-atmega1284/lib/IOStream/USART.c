@@ -9,13 +9,13 @@
  * @note - No parity
  * @note - Asynchronous operation
  * 
- * @attention A clock frequency of 18.432MHz and baud rate of 115.2kbs were used during the development of this bootloader.
+ * @attention A clock frequency of 18.432MHz and baud rate of 19.2kbs were used during the development of this bootloader.
  * Update F_CPU and the value in the UBRRn register to get the desired baud rate.
  * 
  */
 void enableUSART(void)
 {
-    UBRR0L = 9;
+    UBRR0L = 59;
     UCSR0B = _BV(RXEN0) | _BV(TXEN0);
     UCSR0C = _BV(UCSZ01) | _BV(UCSZ00);
 }

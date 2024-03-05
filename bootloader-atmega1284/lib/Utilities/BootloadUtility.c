@@ -8,7 +8,6 @@ const uint8_t uploadeFailedCode = 'w';
 
 // Command Responses
 const uint8_t pageAck[] = {'P', 'a', 'g', 'e'};
-const uint8_t ack[] = {'\r'};
 
 // Page status
 const uint8_t lastPageIndicator = 0xFE;
@@ -88,12 +87,6 @@ void writePageDataToFlash(uint8_t *buf)
     boot_page_write(pageAddress);
     boot_spm_busy_wait();
     boot_rww_enable();
-
-    for (int i = 0; i < 259; ++i)
-    {
-        wdt_reset();
-        usartTransmit(ack, 1);
-    }
 
     usartTransmit(pageAck, 4);
 

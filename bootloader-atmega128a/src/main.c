@@ -5,6 +5,8 @@
 #include "BootloadUtility.h"
 #include "Timer.h"
 
+const uint8_t ack[] = {'\r'};
+
 int main(void)
 {
     // Clear watchdog reset flag and disable watchdog timer.
@@ -68,6 +70,12 @@ int main(void)
             }
 
             continue;
+        }
+
+        // The microcontroller is writing to flash. Send a byte acknowledgement back to the server.
+        if (writingToFlash)
+        {
+            usartTransmit(ack, 1);
         }
 
         // Check if the data buffer has been completely filled with page data

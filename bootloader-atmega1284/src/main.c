@@ -3,6 +3,8 @@
 #include "ButtonUtility.h"
 #include "BootloadUtility.h"
 
+const uint8_t ack[] = {'\r'};
+
 int main(void)
 {
     // Clear watchdog reset flag and disable watchdog timer.
@@ -23,7 +25,7 @@ int main(void)
     // Continue to bootloader section.
     enableUSART();
     startBootloadIndicator();
-    
+
     while (true)
     {
         // Check for data in the usart receive buffers.
@@ -40,8 +42,8 @@ int main(void)
         if (dataStruct.data == '\0' && !writeToFlash)
         {
             bufferCounter = 0;
-            
-            if (!memcmp(dataBuffer, "RTU", 4))                
+
+            if (!memcmp(dataBuffer, "RTU", 4))
             {
                 writeToFlash = true;
                 wdt_enable(WDTO_8S);
@@ -50,7 +52,13 @@ int main(void)
 
             continue;
         }
-        
+
+        // The microcontroller is writing to flash. Send a byte acknowledgement back to the server.
+        if (writeToFlash)
+        {
+            usartTransmit(ack, 1);
+        }
+
         // Check if the data buffer has been completely filled with page data
         if (bufferCounter == 259)
         {
